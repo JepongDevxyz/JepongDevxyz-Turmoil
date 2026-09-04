@@ -33,9 +33,12 @@
   <script src="https://unpkg.com/isomorphic-git/http/web/index.js"></script>
 
   <script>
-    // Initialize Virtual File System in Browser IndexedDB
+    // Initialize Virtual File System sa IndexedDB
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
+
+    // Define GitHttpClient para sa Browser Environment
+    const GitHttp = window.GitHttpWeb;
 
     const term = new Terminal({
       cursorBlink: true,
@@ -174,6 +177,7 @@
                 http: GitHttp,
                 dir: dirPath,
                 url: repoUrl,
+                corsProxy: 'https://cors.isomorphic-git.org',
                 singleBranch: true,
                 depth: 1
               });
