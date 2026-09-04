@@ -38,7 +38,7 @@
       font-family: monospace;
     }
     
-    /* Terminal Area with padding bottom for toolbar space */
+    /* Terminal Area with bottom padding to reserve space for toolbar */
     #terminal-container {
       width: 100%;
       height: calc(100vh - 50px);
@@ -49,7 +49,7 @@
       height: 100%;
     }
     
-    /* Fixed Termux-style On-Screen Toolbar Bar */
+    /* Fixed Termux-style Touch Toolbar */
     .termux-toolbar {
       position: fixed;
       bottom: 0;
@@ -96,7 +96,7 @@
     <div id="terminal"></div>
   </div>
 
-  <!-- Termux Touch Control Bar (Fixed Bottom) -->
+  <!-- Termux Touch Control Bar (Fixed at Bottom) -->
   <div class="termux-toolbar">
     <button class="termux-btn" onclick="handlePaste()">Paste</button>
     <button class="termux-btn" onclick="handleArrowUp()">↑</button>
