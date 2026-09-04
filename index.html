@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JepongDevxyz - Web TermMax</title>
+  <title>JepongDevxyz - Web TerMax</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
   <style>
     body {
@@ -36,6 +36,14 @@
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
 
+    // Direct binding ng HTTP module
+    const getHttpModule = () => {
+      if (typeof GitHttpWeb !== 'undefined') return GitHttpWeb;
+      if (window.GitHttpWeb) return window.GitHttpWeb;
+      if (window.GitHttp) return window.GitHttp;
+      return null;
+    };
+
     const term = new Terminal({
       cursorBlink: true,
       theme: { background: '#000000', foreground: '#00ff66' }
@@ -57,7 +65,7 @@
       term.write(`\r\n\x1b[1;32mJepongDevxyz@termax\x1b[0m:\x1b[1;34m${currentDir}\x1b[0m$ `);
     }
 
-    term.write('\x1b[1;32mJepongDevxyz Web TermMax \x1b[0m\r\n');
+    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Full Termux Engine)\x1b[0m\r\n');
     term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands.\r\n');
     initFS();
 
@@ -85,17 +93,20 @@
 
     async function handleCommand(cmdStr) {
       if (!cmdStr) return;
-      const args = cmdStr.split(' ');
+      
+      // Smart Argument Parsing (Sinusuportahan ang quotes para sa commit messages)
+      const args = cmdStr.match(/(?:[^\s"]+|"[^"]*")+/g).map(a => a.replace(/^"|"$/g, ''));
       const cmd = args[0];
-
-      // Kukunin ang HTTP module direkta mula sa window object
-      const httpModule = window.GitHttpWeb || window.GitHttp;
+      const httpModule = getHttpModule();
 
       switch (cmd) {
         case 'help':
           term.write('Supported Commands:\r\n');
           term.write('  ls, cd, mkdir, cat, rm, clear, pkg install <pkg>\r\n');
-          term.write('  git clone <url>, git add <file>, git commit -m "<msg>", git push\r\n');
+          term.write('  git clone <url>\r\n');
+          term.write('  git add <file|.>\r\n');
+          term.write('  git commit -m "<message>"\r\n');
+          term.write('  git push [remote] [branch]\r\n');
           break;
 
         case 'clear':
@@ -130,7 +141,7 @@
             currentDir = '/' + parts.join('/');
             if (currentDir === '') currentDir = '/home';
           } else {
-            const target = currentDir === '/' ? `/${args[1]}` : `${currentDir}/${args[1]}`;
+            const target = args[1].startsWith('/') ? args[1] : `${currentDir}/${args[1]}`;
             try {
               const stat = await pfs.stat(target);
               if (stat.isDirectory()) currentDir = target;
@@ -153,7 +164,7 @@
 
         case 'pkg':
           if (args[1] === 'install') {
-            term.write(`\x1b[1;33m[*] Simulating package install for '${args[2]}':\x1b[0m\r\n`);
+            term.write(`\x1b[1;33m[*] Package manager simulation: Installing '${args[2]}'\x1b[0m\r\n`);
             term.write(`[+] Package '${args[2]}' successfully registered!\r\n`);
           } else {
             term.write('Usage: pkg install <package_name>\r\n');
@@ -161,11 +172,17 @@
           break;
 
         case 'git':
+          if (!httpModule) {
+            return term.write(`\x1b[1;31m[!] Git Error: HTTP module not loaded. Check script imports.\x1b[0m\r\n`);
+          }
+
           const subCmd = args[1];
-          if (subCmd === 'clone' && args[2]) {
+
+          if (subCmd === 'clone') {
+            if (!args[2]) return term.write('Usage: git clone <url>\r\n');
             const repoUrl = args[2];
             const repoName = repoUrl.split('/').pop().replace('.git', '');
-            const dirPath = `${currentDir}/${repoName}`;
+            const dirPath = currentDir === '/' ? `/${repoName}` : `${currentDir}/${repoName}`;
 
             term.write(`\x1b[1;36mCloning into '${repoName}'...\x1b[0m\r\n`);
             try {
@@ -182,33 +199,46 @@
             } catch (err) {
               term.write(`\x1b[1;31m[!] Git Clone Error: ${err.message}\x1b[0m\r\n`);
             }
+
           } else if (subCmd === 'add') {
-            const filepath = args[2] === '.' ? '' : args[2];
+            const fileTarget = args[2] || '.';
             try {
-              await git.add({ fs, dir: currentDir, filepath });
-              term.write(`\x1b[1;32m[+] File(s) added to stage.\x1b[0m\r\n`);
+              if (fileTarget === '.') {
+                const files = await pfs.readdir(currentDir);
+                for (const file of files) {
+                  if (file !== '.git') {
+                    await git.add({ fs, dir: currentDir, filepath: file });
+                  }
+                }
+              } else {
+                await git.add({ fs, dir: currentDir, filepath: fileTarget });
+              }
+              term.write(`\x1b[1;32m[+] Staged changes successfully.\x1b[0m\r\n`);
             } catch (err) {
               term.write(`\x1b[1;31m[!] Git Add Error: ${err.message}\x1b[0m\r\n`);
             }
+
           } else if (subCmd === 'commit') {
-            const msgIndex = args.indexOf('-m');
-            const message = msgIndex !== -1 ? args.slice(msgIndex + 1).join(' ').replace(/"/g, '') : 'Web commit';
+            const flagIndex = args.indexOf('-m');
+            const message = flagIndex !== -1 ? args[flagIndex + 1] : 'Update via Web TermMax';
+            
             try {
               let sha = await git.commit({
                 fs,
                 dir: currentDir,
                 author: { name: 'JepongDevxyz', email: 'jepong@webterm.com' },
-                message
+                message: message
               });
               term.write(`\x1b[1;32m[+] Commit created: ${sha.slice(0, 7)}\x1b[0m\r\n`);
             } catch (err) {
               term.write(`\x1b[1;31m[!] Git Commit Error: ${err.message}\x1b[0m\r\n`);
             }
+
           } else if (subCmd === 'push') {
-            const token = prompt("Enter your GitHub Personal Access Token (PAT):");
+            const token = prompt("Enter GitHub Personal Access Token (PAT):");
             if (!token) return term.write(`\x1b[1;31m[!] Push cancelled: Token required.\x1b[0m\r\n`);
 
-            term.write(`\x1b[1;36mPushing changes via browser engine...\x1b[0m\r\n`);
+            term.write(`\x1b[1;36mPushing changes to remote repository...\x1b[0m\r\n`);
             try {
               await git.push({
                 fs,
@@ -221,6 +251,7 @@
             } catch (err) {
               term.write(`\x1b[1;31m[!] Git Push Error: ${err.message}\x1b[0m\r\n`);
             }
+
           } else {
             term.write('Usage: git <clone|add|commit|push>\r\n');
           }
