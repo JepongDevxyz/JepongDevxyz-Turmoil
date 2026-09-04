@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>JepongDevxyz - TerMax</title>
 
-  <!-- Step 1: Buffer Polyfill -->
   <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
   <script>
     window.Buffer = window.buffer.Buffer;
@@ -16,7 +15,6 @@
     }
   </script>
 
-  <!-- Step 2: External Libraries -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
@@ -218,12 +216,14 @@
       border: 1px solid #00ff66;
       border-radius: 12px;
       width: 90%;
-      max-width: 380px;
+      max-width: 400px;
       padding: 20px;
       box-shadow: 0 10px 30px rgba(0,255,102,0.15);
       transform: scale(0.9);
       transition: transform 0.25s ease;
       color: #fff;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     .modal-overlay.active .modal-card {
       transform: scale(1);
@@ -262,11 +262,34 @@
     .modal-input:focus {
       border-color: #00ff66;
     }
+    .toggle-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+      background: #0a0a0a;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #222;
+    }
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #ddd;
+    }
+    .toggle-item input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: #00ff66;
+      width: 16px;
+      height: 16px;
+    }
     .modal-buttons {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      margin-top: 12px;
+      margin-top: 16px;
     }
     .modal-btn {
       background: #222;
@@ -288,7 +311,6 @@
 <body>
 
   <div id="app-container">
-    <!-- Top Multi-Tab Bar -->
     <div class="tabs-bar" id="tabsBar">
       <div class="tab-actions">
         <button class="add-tab-btn" onclick="addNewTab()" title="New Tab (Max 12)">+ New Tab</button>
@@ -297,10 +319,8 @@
       </div>
     </div>
 
-    <!-- Terminal Container -->
     <div id="terminal-container"></div>
 
-    <!-- Touch Control Bar -->
     <div class="termux-toolbar">
       <button class="termux-btn auto-btn" onclick="runAutoWorkflow()">Auto Push</button>
       <button class="termux-btn" onclick="handlePaste()">Paste</button>
@@ -313,7 +333,6 @@
     </div>
   </div>
 
-  <!-- Custom Universal Modal -->
   <div class="modal-overlay" id="customModal">
     <div class="modal-card">
       <div class="modal-title" id="modalTitle">Notification</div>
@@ -363,21 +382,57 @@
     let tabs = [];
     let activeTabId = null;
 
-    /* --- GitHub User Settings Helper --- */
-    function getSavedGitHubConfig() {
+    /* --- GitHub User Settings Helper (Multi-Account & Persistence Scope Supported) --- */
+    function getSavedGitHubConfig(tabId = activeTabId) {
+      // 1. Check local session storage for this tab
+      const tabConfigStr = sessionStorage.getItem(`gh_config_tab_${tabId}`);
+      if (tabConfigStr) {
+        return JSON.parse(tabConfigStr);
+      }
+
+      // 2. Fallback to global localStorage
+      const globalRemAll = localStorage.getItem('gh_rem_all') === 'true';
       return {
-        username: localStorage.getItem('gh_username') || '',
-        email: localStorage.getItem('gh_email') || '',
-        repoUrl: localStorage.getItem('gh_repourl') || '',
-        token: localStorage.getItem('gh_token') || ''
+        username: (globalRemAll ? localStorage.getItem('gh_username') : '') || '',
+        email: (globalRemAll ? localStorage.getItem('gh_email') : '') || '',
+        repoUrl: (globalRemAll ? localStorage.getItem('gh_repourl') : '') || '',
+        token: (globalRemAll ? localStorage.getItem('gh_token') : '') || '',
+        rememberTab: false,
+        rememberAll: globalRemAll
       };
     }
 
-    function saveGitHubConfig(cfg) {
-      if (cfg.username) localStorage.setItem('gh_username', cfg.username.trim());
-      if (cfg.email) localStorage.setItem('gh_email', cfg.email.trim());
-      if (cfg.repoUrl) localStorage.setItem('gh_repourl', cfg.repoUrl.trim());
-      if (cfg.token) localStorage.setItem('gh_token', cfg.token.trim());
+    function saveGitHubConfig(cfg, tabId = activeTabId) {
+      // Manage "Remember in this tab" (Session-based)
+      if (cfg.rememberTab) {
+        sessionStorage.setItem(`gh_config_tab_${tabId}`, JSON.stringify({
+          username: cfg.username.trim(),
+          email: cfg.email.trim(),
+          repoUrl: cfg.repoUrl.trim(),
+          token: cfg.token.trim(),
+          rememberTab: true,
+          rememberAll: false
+        }));
+      } else {
+        sessionStorage.removeItem(`gh_config_tab_${tabId}`);
+      }
+
+      // Manage "Remember in all tabs" (LocalStorage-based)
+      if (cfg.rememberAll) {
+        localStorage.setItem('gh_rem_all', 'true');
+        localStorage.setItem('gh_username', cfg.username.trim());
+        localStorage.setItem('gh_email', cfg.email.trim());
+        localStorage.setItem('gh_repourl', cfg.repoUrl.trim());
+        localStorage.setItem('gh_token', cfg.token.trim());
+      } else {
+        localStorage.setItem('gh_rem_all', 'false');
+        if (!cfg.rememberTab) {
+          localStorage.removeItem('gh_username');
+          localStorage.removeItem('gh_email');
+          localStorage.removeItem('gh_repourl');
+          localStorage.removeItem('gh_token');
+        }
+      }
     }
 
     /* --- Modern Modal System --- */
@@ -426,7 +481,9 @@
 
     /* GitHub Setup Modal */
     function openConfigModal(onSavedCallback = null) {
-      const cfg = getSavedGitHubConfig();
+      const activeTab = getActiveTab();
+      const cfg = getSavedGitHubConfig(activeTab ? activeTab.id : null);
+      
       const formHTML = `
         <label class="input-label">GitHub Username:</label>
         <input type="text" id="cfg_user" class="modal-input" placeholder="e.g. JepongDevxyz" value="${cfg.username}" />
@@ -436,11 +493,22 @@
         <input type="text" id="cfg_repo" class="modal-input" placeholder="https://github.com/user/repo.git" value="${cfg.repoUrl}" />
         <label class="input-label">Personal Access Token (PAT):</label>
         <input type="password" id="cfg_token" class="modal-input" placeholder="ghp_xxxxxxxxxxxx" value="${cfg.token}" />
+        
+        <div class="toggle-container">
+          <label class="toggle-item">
+            <span>Remember in this tab</span>
+            <input type="checkbox" id="cfg_rem_tab" ${cfg.rememberTab ? 'checked' : ''} onchange="toggleOption('tab')" />
+          </label>
+          <label class="toggle-item">
+            <span>Remember in all tabs</span>
+            <input type="checkbox" id="cfg_rem_all" ${cfg.rememberAll ? 'checked' : ''} onchange="toggleOption('all')" />
+          </label>
+        </div>
       `;
 
       showModal({
-        title: '⚙️ GitHub Setup',
-        message: 'I-enter ang iyong sariling GitHub account at token para sa Auto Push:',
+        title: `⚙️ GitHub Setup (${activeTab ? activeTab.name : 'Global'})`,
+        message: 'I-enter ang iyong GitHub account at token. Pwedeng magkaibang account kada tab!',
         customFormHTML: formHTML,
         showCancel: true,
         onConfirm: () => {
@@ -448,13 +516,26 @@
             username: document.getElementById('cfg_user').value,
             email: document.getElementById('cfg_email').value,
             repoUrl: document.getElementById('cfg_repo').value,
-            token: document.getElementById('cfg_token').value
+            token: document.getElementById('cfg_token').value,
+            rememberTab: document.getElementById('cfg_rem_tab').checked,
+            rememberAll: document.getElementById('cfg_rem_all').checked
           };
-          saveGitHubConfig(newCfg);
-          showModal({ title: 'Saved!', message: 'Nai-save na ang iyong GitHub Config.' });
+          saveGitHubConfig(newCfg, activeTab ? activeTab.id : null);
+          showModal({ title: 'Saved!', message: 'Nai-save na ang iyong GitHub Config para sa tab na ito.' });
           if (onSavedCallback) onSavedCallback();
         }
       });
+    }
+
+    // Dynamic Exclusive Checkbox Logic
+    function toggleOption(type) {
+      const tabCb = document.getElementById('cfg_rem_tab');
+      const allCb = document.getElementById('cfg_rem_all');
+      if (type === 'tab' && tabCb.checked) {
+        allCb.checked = false;
+      } else if (type === 'all' && allCb.checked) {
+        tabCb.checked = false;
+      }
     }
 
     function getSavedTabList() {
@@ -579,7 +660,7 @@
         promptForTab(tabData);
       } else {
         term.write(`\x1b[1;32mJepongDevxyz TerMax \r\n(${tabData.name})\x1b[0m\r\n`);
-        term.write('Type \x1b[1;33mhelp\x1b[0m. for Commands\r\n');
+        term.write('Type \x1b[1;33mhelp\x1b[0m for Commands\r\n');
         promptForTab(tabData);
       }
 
@@ -651,6 +732,7 @@
         localStorage.removeItem(`tab_${tabId}_currentDir`);
         localStorage.removeItem(`tab_${tabId}_commandHistory`);
         localStorage.removeItem(`tab_${tabId}_bufferText`);
+        sessionStorage.removeItem(`gh_config_tab_${tabId}`);
         
         tabs.splice(index, 1);
 
@@ -675,6 +757,7 @@
             localStorage.removeItem(`tab_${t.id}_currentDir`);
             localStorage.removeItem(`tab_${t.id}_commandHistory`);
             localStorage.removeItem(`tab_${t.id}_bufferText`);
+            sessionStorage.removeItem(`gh_config_tab_${t.id}`);
           });
           tabs = [];
           addNewTab();
@@ -763,6 +846,7 @@
         showCancel: true,
         onConfirm: () => {
           localStorage.clear();
+          sessionStorage.clear();
           location.reload();
         }
       });
@@ -818,12 +902,13 @@
     }
 
     async function runAutoWorkflow() {
-      const cfg = getSavedGitHubConfig();
+      const active = getActiveTab();
+      const cfg = getSavedGitHubConfig(active ? active.id : null);
 
       if (!cfg.token || !cfg.repoUrl) {
         showModal({
           title: 'GitHub Credentials Required',
-          message: 'Kailangan mo munang i-setup ang iyong GitHub Repository at Token para magamit ang Auto Push.',
+          message: 'Kailangan mo munang i-setup ang iyong GitHub Repository at Token para magamit ang Auto Push sa tab na ito.',
           onConfirm: () => {
             openConfigModal(() => runAutoWorkflow());
           }
@@ -943,7 +1028,7 @@
     async function handleCommand(cmdStr, active) {
       if (!cmdStr) return;
       const term = active.term;
-      const cfg = getSavedGitHubConfig();
+      const cfg = getSavedGitHubConfig(active.id);
 
       const args = cmdStr.match(/(?:[^\s"]+|"[^"]*")+/g).map(a => a.replace(/^"|"$/g, ''));
       const cmd = args[0];
@@ -1008,7 +1093,8 @@
 
             if (response.ok) {
               term.write(`\x1b[1;32m[+] Successfully created repository: ${data.html_url}\x1b[0m\r\n`);
-              localStorage.setItem('gh_repourl', data.clone_url);
+              cfg.repoUrl = data.clone_url;
+              saveGitHubConfig(cfg, active.id);
               term.write(`\x1b[1;33m[*] Target Repository URL updated to: ${data.clone_url}\x1b[0m\r\n`);
             } else {
               term.write(`\x1b[1;31m[!] Failed to create repo: ${data.message}\x1b[0m\r\n`);
