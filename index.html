@@ -38,24 +38,33 @@
       font-family: monospace;
     }
     
-    /* Terminal Area with bottom padding to reserve space for toolbar */
-    #terminal-container {
+    /* Dynamic App Container matching Visual Viewport height */
+    #app-container {
+      position: fixed;
+      top: 0;
+      left: 0;
       width: 100%;
-      height: calc(100vh - 50px);
-      padding: 5px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
     }
+
+    #terminal-container {
+      flex: 1;
+      width: 100%;
+      padding: 5px;
+      overflow: hidden;
+    }
+
     #terminal {
       width: 100%;
       height: 100%;
     }
     
-    /* Fixed Termux-style Touch Toolbar */
+    /* Touch Toolbar sitting right above keyboard / bottom of viewport */
     .termux-toolbar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
       height: 50px;
+      width: 100%;
       display: flex;
       align-items: center;
       background-color: #1a1a1a;
@@ -67,7 +76,9 @@
       z-index: 9999;
       user-select: none;
       -webkit-user-select: none;
+      flex-shrink: 0;
     }
+
     .termux-btn {
       background-color: #2a2a2a;
       color: #00ff66;
@@ -92,18 +103,20 @@
 </head>
 <body>
 
-  <div id="terminal-container">
-    <div id="terminal"></div>
-  </div>
+  <div id="app-container">
+    <div id="terminal-container">
+      <div id="terminal"></div>
+    </div>
 
-  <!-- Termux Touch Control Bar (Fixed at Bottom) -->
-  <div class="termux-toolbar">
-    <button class="termux-btn" onclick="handlePaste()">Paste</button>
-    <button class="termux-btn" onclick="handleArrowUp()">↑</button>
-    <button class="termux-btn" onclick="handleArrowDown()">↓</button>
-    <button class="termux-btn" onclick="handleEnter()">Enter ↩</button>
-    <button class="termux-btn" onclick="handleUndo()">Undo</button>
-    <button class="termux-btn" onclick="handleRedo()">Redo</button>
+    <!-- Termux Touch Control Bar -->
+    <div class="termux-toolbar">
+      <button class="termux-btn" onclick="handlePaste()">Paste</button>
+      <button class="termux-btn" onclick="handleArrowUp()">↑</button>
+      <button class="termux-btn" onclick="handleArrowDown()">↓</button>
+      <button class="termux-btn" onclick="handleEnter()">Enter ↩</button>
+      <button class="termux-btn" onclick="handleUndo()">Undo</button>
+      <button class="termux-btn" onclick="handleRedo()">Redo</button>
+    </div>
   </div>
 
   <script>
@@ -152,6 +165,25 @@
     term.loadAddon(fitAddon);
     term.open(document.getElementById('terminal'));
     fitAddon.fit();
+
+    // Sync Viewport Height with Keyboard State
+    function updateViewportHeight() {
+      const appContainer = document.getElementById('app-container');
+      if (window.visualViewport) {
+        appContainer.style.height = `${window.visualViewport.height}px`;
+        appContainer.style.top = `${window.visualViewport.offsetTop}px`;
+      } else {
+        appContainer.style.height = `${window.innerHeight}px`;
+      }
+      fitAddon.fit();
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewportHeight);
+      window.visualViewport.addEventListener('scroll', updateViewportHeight);
+    }
+    window.addEventListener('resize', updateViewportHeight);
+    updateViewportHeight();
 
     let currentDir = '/home';
     let currentInput = '';
@@ -217,7 +249,7 @@
           term.write(text);
         }
       } catch (err) {
-        const text = prompt("Paste text here:");
+        const text = window.prompt("Paste text here:");
         if (text) {
           undoStack.push(currentInput);
           redoStack.length = 0;
@@ -516,7 +548,7 @@
             }
 
           } else if (subCmd === 'push') {
-            const token = prompt("Enter GitHub Personal Access Token (PAT):");
+            const token = window.prompt("Enter GitHub Personal Access Token (PAT):");
             if (!token) return term.write(`\x1b[1;31m[!] Push cancelled: Token required.\x1b[0m\r\n`);
 
             term.write(`\x1b[1;36mPushing changes to remote repository...\x1b[0m\r\n`);
@@ -534,7 +566,7 @@
             }
 
           } else if (subCmd === 'pull') {
-            const token = prompt("Enter GitHub PAT (Leave blank if public repo):");
+            const token = window.prompt("Enter GitHub PAT (Leave blank if public repo):");
             term.write(`\x1b[1;36mPulling latest changes...\x1b[0m\r\n`);
             try {
               await git.pull({
@@ -598,8 +630,6 @@
           term.write(`${cmd}: command not found. Type 'help' for available commands.\r\n`);
       }
     }
-
-    window.addEventListener('resize', () => fitAddon.fit());
   </script>
 </body>
 </html>
