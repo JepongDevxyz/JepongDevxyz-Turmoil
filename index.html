@@ -4,7 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JepongDevxyz - Web TermMax</title>
+
+  <!-- Step 1: Buffer Polyfill (Dapat nakaload agad sa pinakataas) -->
+  <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
+  <script>
+    window.Buffer = window.buffer.Buffer;
+    if (!window.Buffer.isBuffer) {
+      window.Buffer.isBuffer = function(b) {
+        return !!(b && b._isBuffer);
+      };
+    }
+  </script>
+
+  <!-- Step 2: Xterm CSS & Core Libraries -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+  <script src="https://unpkg.com/@isomorphic-git/lightning-fs"></script>
+  <script src="https://unpkg.com/isomorphic-git@1.25.0/index.umd.min.js"></script>
+
   <style>
     body {
       background-color: #000;
@@ -24,18 +42,6 @@
 <body>
 
   <div id="terminal"></div>
-
-  <!-- Buffer Polyfill -->
-  <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.js"></script>
-  <script>
-    window.Buffer = window.buffer.Buffer;
-  </script>
-
-  <!-- Core Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-  <script src="https://unpkg.com/@isomorphic-git/lightning-fs"></script>
-  <script src="https://unpkg.com/isomorphic-git"></script>
 
   <script>
     const fs = new LightningFS('JepongFS');
@@ -96,7 +102,26 @@
       term.write(`\r\n\x1b[1;32mJepongDevxyz@termax\x1b[0m:\x1b[1;34m${currentDir}\x1b[0m$ `);
     }
 
-    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Complete Stable)\x1b[0m\r\n');
+    // Helper function para mag-walk ng files nang recursive para sa git add
+    async function getAllFiles(dir, baseDir = dir) {
+      let results = [];
+      const list = await pfs.readdir(dir);
+      for (const file of list) {
+        if (file === '.git') continue;
+        const fullPath = `${dir}/${file}`;
+        const relativePath = fullPath.replace(`${baseDir}/`, '').replace(/^\//, '');
+        const stat = await pfs.stat(fullPath);
+        if (stat.isDirectory()) {
+          const res = await getAllFiles(fullPath, baseDir);
+          results = results.concat(res);
+        } else {
+          results.push(relativePath);
+        }
+      }
+      return results;
+    }
+
+    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Buffer & Git Fixed)\x1b[0m\r\n');
     term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands.\r\n');
     initFS();
 
@@ -131,7 +156,7 @@
       switch (cmd) {
         case 'help':
           term.write('Supported Commands:\r\n');
-          term.write('  ls, cd, mkdir, cat, rm, clear\r\n');
+          term.write('  ls, cd, mkdir, cat, clear\r\n');
           term.write('  git clone <url>\r\n');
           term.write('  git add <file|.>\r\n');
           term.write('  git commit -m "<message>"\r\n');
@@ -225,11 +250,9 @@
             const fileTarget = args[2] || '.';
             try {
               if (fileTarget === '.') {
-                const files = await pfs.readdir(currentDir);
-                for (const file of files) {
-                  if (file !== '.git') {
-                    await git.add({ fs, dir: currentDir, filepath: file });
-                  }
+                const filesToStaged = await getAllFiles(currentDir);
+                for (const filepath of filesToStaged) {
+                  await git.add({ fs, dir: currentDir, filepath });
                 }
               } else {
                 await git.add({ fs, dir: currentDir, filepath: fileTarget });
