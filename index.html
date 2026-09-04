@@ -120,8 +120,8 @@
       return results;
     }
 
-    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Complete Guide Edition)\x1b[0m\r\n');
-    term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands and full GitHub workflow guide.\r\n');
+    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Fixed HEAD & Empty Repo)\x1b[0m\r\n');
+    term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands and workflow guide.\r\n');
     initFS();
 
     term.onData(async (e) => {
@@ -253,13 +253,22 @@
                 dir: dirPath,
                 url: repoUrl,
                 corsProxy: 'https://cors.isomorphic-git.org',
-                singleBranch: true,
-                depth: 1
+                noCheckout: false
               });
               term.write(`\x1b[1;32m[+] Clone completed successfully!\x1b[0m\r\n`);
             } catch (err) {
-              if (err.message.includes('Empty response') || err.message.includes('404')) {
-                term.write(`\x1b[1;33m[!] Note: Ground repo appears empty. Add a README.md file on GitHub first before cloning.\x1b[0m\r\n`);
+              if (err.message.includes('Could not find HEAD') || err.message.includes('Empty response') || err.message.includes('404')) {
+                // Inisyalisa bilang lokal na repo kung walang laman ang GitHub repo
+                try {
+                  await pfs.mkdir(dirPath);
+                  await git.init({ fs, dir: dirPath, defaultBranch: 'main' });
+                  await git.addRemote({ fs, dir: dirPath, remote: 'origin', url: repoUrl });
+                  term.write(`\x1b[1;33m[!] Remote repository appears to be empty/new.\x1b[0m\r\n`);
+                  term.write(`\x1b[1;32m[+] Initialized empty local repository & connected to GitHub!\x1b[0m\r\n`);
+                  term.write(`\x1b[1;36mType 'cd ${repoName}' to enter the directory.\x1b[0m\r\n`);
+                } catch (initErr) {
+                  term.write(`\x1b[1;31m[!] Git Error: ${initErr.message}\x1b[0m\r\n`);
+                }
               } else {
                 term.write(`\x1b[1;31m[!] Git Clone Error: ${err.message}\x1b[0m\r\n`);
               }
