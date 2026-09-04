@@ -25,7 +25,6 @@
 
   <div id="terminal"></div>
 
-  <!-- xterm.js, LightningFS, at Isomorphic-Git -->
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script src="https://unpkg.com/@isomorphic-git/lightning-fs"></script>
@@ -33,11 +32,8 @@
   <script src="https://unpkg.com/isomorphic-git/http/web/index.js"></script>
 
   <script>
-    // Initialize Virtual File System sa IndexedDB
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
-
-    // Define GitHttpClient para sa Browser Environment
     const GitHttp = window.GitHttpWeb;
 
     const term = new Terminal({
@@ -52,11 +48,8 @@
     let currentDir = '/home';
     let currentInput = '';
 
-    // Initialize home directory
     async function initFS() {
-      try {
-        await pfs.mkdir('/home');
-      } catch (e) {}
+      try { await pfs.mkdir('/home'); } catch (e) {}
       prompt();
     }
 
@@ -70,13 +63,13 @@
 
     term.onData(async (e) => {
       switch (e) {
-        case '\r': // Enter
+        case '\r':
           term.write('\r\n');
           await handleCommand(currentInput.trim());
           currentInput = '';
           prompt();
           break;
-        case '\u007F': // Backspace
+        case '\u007F':
           if (currentInput.length > 0) {
             currentInput = currentInput.slice(0, -1);
             term.write('\b \b');
@@ -98,7 +91,8 @@
       switch (cmd) {
         case 'help':
           term.write('Supported Commands:\r\n');
-          term.write('  ls, cd, mkdir, cat, rm, clear, git clone <url>, pkg install <pkg>\r\n');
+          term.write('  ls, cd, mkdir, cat, rm, clear, pkg install <pkg>\r\n');
+          term.write('  git clone <url>, git add <file>, git commit -m "<msg>", git push\r\n');
           break;
 
         case 'clear':
@@ -157,15 +151,15 @@
         case 'pkg':
           if (args[1] === 'install') {
             term.write(`\x1b[1;33m[*] Simulating package install for '${args[2]}':\x1b[0m\r\n`);
-            term.write(`[+] Fetching repository package index...\r\n`);
-            term.write(`[+] Package '${args[2]}' successfully registered in Web Environment!\r\n`);
+            term.write(`[+] Package '${args[2]}' successfully registered!\r\n`);
           } else {
             term.write('Usage: pkg install <package_name>\r\n');
           }
           break;
 
         case 'git':
-          if (args[1] === 'clone' && args[2]) {
+          const subCmd = args[1];
+          if (subCmd === 'clone' && args[2]) {
             const repoUrl = args[2];
             const repoName = repoUrl.split('/').pop().replace('.git', '');
             const dirPath = `${currentDir}/${repoName}`;
@@ -185,8 +179,43 @@
             } catch (err) {
               term.write(`\x1b[1;31m[!] Git Clone Error: ${err.message}\x1b[0m\r\n`);
             }
+          } else if (subCmd === 'add') {
+            const filepath = args[2] === '.' ? '' : args[2];
+            try {
+              await git.add({ fs, dir: currentDir, filepath });
+              term.write(`\x1b[1;32m[+] File(s) added to stage.\x1b[0m\r\n`);
+            } catch (err) {
+              term.write(`\x1b[1;31m[!] Git Add Error: ${err.message}\x1b[0m\r\n`);
+            }
+          } else if (subCmd === 'commit') {
+            const msgIndex = args.indexOf('-m');
+            const message = msgIndex !== -1 ? args.slice(msgIndex + 1).join(' ').replace(/"/g, '') : 'Web commit';
+            try {
+              let sha = await git.commit({
+                fs,
+                dir: currentDir,
+                author: { name: 'JepongDevxyz', email: 'jepong@webterm.com' },
+                message
+              });
+              term.write(`\x1b[1;32m[+] Commit created: ${sha.slice(0, 7)}\x1b[0m\r\n`);
+            } catch (err) {
+              term.write(`\x1b[1;31m[!] Git Commit Error: ${err.message}\x1b[0m\r\n`);
+            }
+          } else if (subCmd === 'push') {
+            term.write(`\x1b[1;36mPushing changes via browser engine...\x1b[0m\r\n`);
+            try {
+              await git.push({
+                fs,
+                http: GitHttp,
+                dir: currentDir,
+                corsProxy: 'https://cors.isomorphic-git.org'
+              });
+              term.write(`\x1b[1;32m[+] Push successful!\x1b[0m\r\n`);
+            } catch (err) {
+              term.write(`\x1b[1;31m[!] Git Push Error: ${err.message}\x1b[0m\r\n`);
+            }
           } else {
-            term.write('Usage: git clone <https_repo_url>\r\n');
+            term.write('Usage: git <clone|add|commit|push>\r\n');
           }
           break;
 
