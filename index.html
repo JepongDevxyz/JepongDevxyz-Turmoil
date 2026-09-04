@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>JepongDevxyz - Multi-Tab Web TermMax</title>
+  <title>JepongDevxyz TerMax</title>
 
+  <!-- Step 1: Buffer Polyfill -->
   <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
   <script>
     window.Buffer = window.buffer.Buffer;
@@ -15,6 +16,7 @@
     }
   </script>
 
+  <!-- Step 2: External Libraries -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
@@ -55,12 +57,12 @@
       overflow-x: auto;
       white-space: nowrap;
       flex-shrink: 0;
-      height: 38px;
+      height: 42px;
       padding: 0 4px;
     }
 
     .tab-item {
-      background-color: #222;
+      background-color: #1e1e1e;
       color: #888;
       border: 1px solid #333;
       border-bottom: none;
@@ -73,6 +75,7 @@
       align-items: center;
       gap: 6px;
       user-select: none;
+      transition: background-color 0.2s, color 0.2s;
     }
 
     .tab-item.active {
@@ -94,17 +97,38 @@
       color: #000;
     }
 
+    .tab-actions {
+      display: flex;
+      gap: 4px;
+      margin-left: 4px;
+      flex-shrink: 0;
+    }
+
+    .add-tab-btn, .close-all-btn, .config-btn {
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
     .add-tab-btn {
       background-color: #00ff66;
       color: #000;
-      border: none;
-      border-radius: 4px;
-      padding: 4px 10px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-left: 4px;
-      flex-shrink: 0;
+    }
+
+    .close-all-btn {
+      background-color: #2a1111;
+      color: #ff5555;
+      border: 1px solid #ff5555;
+    }
+
+    .config-btn {
+      background-color: #222;
+      color: #00ff66;
+      border: 1px solid #00ff66;
     }
 
     #terminal-container {
@@ -124,6 +148,7 @@
       display: block;
     }
     
+    /* Touch Controls */
     .termux-toolbar {
       height: 48px;
       width: 100%;
@@ -166,17 +191,116 @@
       background-color: #00ff66;
       color: #000;
     }
+
+    /* Modern Notification & Modal Styling */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-card {
+      background: #141414;
+      border: 1px solid #00ff66;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 380px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,255,102,0.15);
+      transform: scale(0.9);
+      transition: transform 0.25s ease;
+      color: #fff;
+    }
+    .modal-overlay.active .modal-card {
+      transform: scale(1);
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #00ff66;
+      margin-bottom: 10px;
+    }
+    .modal-body {
+      font-size: 13px;
+      color: #ccc;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .input-label {
+      font-size: 11px;
+      color: #00ff66;
+      margin-top: 8px;
+      display: block;
+    }
+    .modal-input {
+      width: 100%;
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #00ff66;
+      padding: 8px 10px;
+      font-family: monospace;
+      outline: none;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .modal-input:focus {
+      border-color: #00ff66;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .modal-btn {
+      background: #222;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .modal-btn.primary {
+      background: #00ff66;
+      color: #000;
+      border: none;
+    }
   </style>
 </head>
 <body>
 
   <div id="app-container">
+    <!-- Top Multi-Tab Bar -->
     <div class="tabs-bar" id="tabsBar">
-      <button class="add-tab-btn" onclick="addNewTab()" title="New Tab (Max 12)">+ New Tab</button>
+      <div class="tab-actions">
+        <button class="add-tab-btn" onclick="addNewTab()" title="New Tab (Max 12)">+ New Tab</button>
+        <button class="config-btn" onclick="openConfigModal()" title="GitHub Configuration">⚙️ Setup</button>
+        <button class="close-all-btn" onclick="confirmCloseAllTabs()" title="Close All Tabs">✕ Close All</button>
+      </div>
     </div>
 
+    <!-- Terminal Container -->
     <div id="terminal-container"></div>
 
+    <!-- Touch Control Bar -->
     <div class="termux-toolbar">
       <button class="termux-btn auto-btn" onclick="runAutoWorkflow()">⚡ Auto Push Test</button>
       <button class="termux-btn" onclick="handlePaste()">Paste</button>
@@ -186,6 +310,18 @@
       <button class="termux-btn" onclick="handleUndo()">Undo</button>
       <button class="termux-btn" onclick="handleRedo()">Redo</button>
       <button class="termux-btn" onclick="resetAllTabs()" style="color: #ff5555; border-color: #ff5555;">Clear Saved</button>
+    </div>
+  </div>
+
+  <!-- Custom Universal Modal -->
+  <div class="modal-overlay" id="customModal">
+    <div class="modal-card">
+      <div class="modal-title" id="modalTitle">Notification</div>
+      <div class="modal-body" id="modalBody">Message text goes here...</div>
+      <div id="modalCustomForm" style="display: none;"></div>
+      <div class="modal-buttons" id="modalButtons">
+        <button class="modal-btn primary" id="modalConfirmBtn">OK</button>
+      </div>
     </div>
   </div>
 
@@ -203,11 +339,7 @@
           reqBody = Buffer.concat(chunks);
         }
 
-        const res = await fetch(url, {
-          method,
-          headers,
-          body: reqBody
-        });
+        const res = await fetch(url, { method, headers, body: reqBody });
 
         return {
           url: res.url,
@@ -227,28 +359,122 @@
       }
     };
 
-    // State for multiple tabs
+    // Global state
     let tabs = [];
     let activeTabId = null;
 
+    /* --- GitHub User Settings Helper --- */
+    function getSavedGitHubConfig() {
+      return {
+        username: localStorage.getItem('gh_username') || '',
+        email: localStorage.getItem('gh_email') || '',
+        repoUrl: localStorage.getItem('gh_repourl') || '',
+        token: localStorage.getItem('gh_token') || ''
+      };
+    }
+
+    function saveGitHubConfig(cfg) {
+      if (cfg.username) localStorage.setItem('gh_username', cfg.username.trim());
+      if (cfg.email) localStorage.setItem('gh_email', cfg.email.trim());
+      if (cfg.repoUrl) localStorage.setItem('gh_repourl', cfg.repoUrl.trim());
+      if (cfg.token) localStorage.setItem('gh_token', cfg.token.trim());
+    }
+
+    /* --- Modern Modal System --- */
+    function showModal({ title, message, customFormHTML = null, showCancel = false, onConfirm }) {
+      const modal = document.getElementById('customModal');
+      const titleEl = document.getElementById('modalTitle');
+      const bodyEl = document.getElementById('modalBody');
+      const customFormEl = document.getElementById('modalCustomForm');
+      const buttonsEl = document.getElementById('modalButtons');
+
+      titleEl.innerText = title || 'Notice';
+      bodyEl.innerText = message || '';
+      
+      if (customFormHTML) {
+        customFormEl.innerHTML = customFormHTML;
+        customFormEl.style.display = 'block';
+      } else {
+        customFormEl.innerHTML = '';
+        customFormEl.style.display = 'none';
+      }
+
+      buttonsEl.innerHTML = '';
+      if (showCancel) {
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'modal-btn';
+        cancelBtn.innerText = 'Cancel';
+        cancelBtn.onclick = () => closeModal();
+        buttonsEl.appendChild(cancelBtn);
+      }
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'modal-btn primary';
+      confirmBtn.innerText = 'OK';
+      confirmBtn.onclick = () => {
+        closeModal();
+        if (onConfirm) onConfirm();
+      };
+      buttonsEl.appendChild(confirmBtn);
+
+      modal.classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('customModal').classList.remove('active');
+    }
+
+    /* GitHub Setup Modal */
+    function openConfigModal(onSavedCallback = null) {
+      const cfg = getSavedGitHubConfig();
+      const formHTML = `
+        <label class="input-label">GitHub Username:</label>
+        <input type="text" id="cfg_user" class="modal-input" placeholder="e.g. JepongDevxyz" value="${cfg.username}" />
+        <label class="input-label">GitHub Email:</label>
+        <input type="text" id="cfg_email" class="modal-input" placeholder="e.g. user@gmail.com" value="${cfg.email}" />
+        <label class="input-label">Target Repository URL:</label>
+        <input type="text" id="cfg_repo" class="modal-input" placeholder="https://github.com/user/repo.git" value="${cfg.repoUrl}" />
+        <label class="input-label">Personal Access Token (PAT):</label>
+        <input type="password" id="cfg_token" class="modal-input" placeholder="ghp_xxxxxxxxxxxx" value="${cfg.token}" />
+      `;
+
+      showModal({
+        title: '⚙️ GitHub Setup',
+        message: 'I-enter ang iyong sariling GitHub account at token para sa Auto Push:',
+        customFormHTML: formHTML,
+        showCancel: true,
+        onConfirm: () => {
+          const newCfg = {
+            username: document.getElementById('cfg_user').value,
+            email: document.getElementById('cfg_email').value,
+            repoUrl: document.getElementById('cfg_repo').value,
+            token: document.getElementById('cfg_token').value
+          };
+          saveGitHubConfig(newCfg);
+          showModal({ title: 'Saved!', message: 'Nai-save na ang iyong GitHub Config.' });
+          if (onSavedCallback) onSavedCallback();
+        }
+      });
+    }
+
     function getSavedTabList() {
-      return JSON.parse(localStorage.getItem('multitab_list') || '[]');
+      return JSON.parse(localStorage.getItem('multitab_list_v2') || '[]');
     }
 
     function saveTabList() {
-      const tabIds = tabs.map(t => t.id);
-      localStorage.setItem('multitab_list', JSON.stringify(tabIds));
+      const tabDataList = tabs.map(t => ({ id: t.id, name: t.name }));
+      localStorage.setItem('multitab_list_v2', JSON.stringify(tabDataList));
       localStorage.setItem('multitab_activeId', activeTabId);
     }
 
     async function initFS() {
       try { await pfs.mkdir('/home'); } catch (e) {}
 
-      const savedTabIds = getSavedTabList();
-      if (savedTabIds.length > 0) {
-        savedTabIds.forEach(id => createTabInstance(id));
+      const savedTabs = getSavedTabList();
+      if (savedTabs.length > 0) {
+        savedTabs.forEach(t => createTabInstance(t.id, t.name));
         const savedActive = localStorage.getItem('multitab_activeId');
-        switchTab(savedActive && savedTabIds.includes(savedActive) ? savedActive : savedTabIds[0]);
+        switchTab(savedActive && savedTabs.some(t => t.id === savedActive) ? savedActive : savedTabs[0].id);
       } else {
         addNewTab();
       }
@@ -274,7 +500,17 @@
     }
     window.addEventListener('resize', updateViewportHeight);
 
-    function createTabInstance(tabId) {
+    function getNextTabName() {
+      for (let i = 1; i <= MAX_TABS; i++) {
+        const expectedName = `Tab_${i}`;
+        if (!tabs.some(t => t.name === expectedName)) {
+          return expectedName;
+        }
+      }
+      return `Tab_${tabs.length + 1}`;
+    }
+
+    function createTabInstance(tabId, customName = null) {
       const termContainer = document.getElementById('terminal-container');
       const wrapper = document.createElement('div');
       wrapper.className = 'term-wrapper';
@@ -289,8 +525,11 @@
       term.loadAddon(fitAddon);
       term.open(wrapper);
 
+      const tabName = customName || getNextTabName();
+
       const tabData = {
         id: tabId,
+        name: tabName,
         term,
         fitAddon,
         wrapper,
@@ -334,13 +573,12 @@
         }
       });
 
-      // Restore saved Terminal Output
       const savedBuffer = localStorage.getItem(`tab_${tabId}_bufferText`);
       if (savedBuffer) {
         term.write(savedBuffer.replace(/\n/g, '\r\n'));
         promptForTab(tabData);
       } else {
-        term.write(`\x1b[1;32mJepongDevxyz Web TermMax (Tab ${tabId})\x1b[0m\r\n`);
+        term.write(`\x1b[1;32mJepongDevxyz Web TermMax (${tabData.name})\x1b[0m\r\n`);
         term.write('Press \x1b[1;33m[⚡ Auto Push Test]\x1b[0m or type \x1b[1;33mhelp\x1b[0m.\r\n');
         promptForTab(tabData);
       }
@@ -358,11 +596,6 @@
       saveTabState(t);
     }
 
-    function prompt() {
-      const active = getActiveTab();
-      if (active) promptForTab(active);
-    }
-
     function saveTabState(t) {
       localStorage.setItem(`tab_${t.id}_currentDir`, t.currentDir);
       localStorage.setItem(`tab_${t.id}_commandHistory`, JSON.stringify(t.commandHistory));
@@ -375,10 +608,13 @@
 
     function addNewTab() {
       if (tabs.length >= MAX_TABS) {
-        alert(`Naka-reach ka na sa limit na ${MAX_TABS} tabs!`);
+        showModal({
+          title: 'Tab Limit Reached',
+          message: `Naka-reach ka na sa maximum limit na ${MAX_TABS} tabs!`
+        });
         return;
       }
-      const newId = `Tab_${Date.now().toString().slice(-4)}`;
+      const newId = `id_${Date.now().toString().slice(-6)}`;
       createTabInstance(newId);
       switchTab(newId);
     }
@@ -399,9 +635,12 @@
     }
 
     function closeTab(e, tabId) {
-      e.stopPropagation();
+      if (e) e.stopPropagation();
       if (tabs.length === 1) {
-        alert("Hindi mo pwedeng isara ang natitirang huling tab.");
+        showModal({
+          title: 'Cannot Close',
+          message: 'Hindi mo pwedeng isara ang natitirang huling tab.'
+        });
         return;
       }
 
@@ -425,36 +664,108 @@
       }
     }
 
+    function confirmCloseAllTabs() {
+      showModal({
+        title: 'Close All Tabs',
+        message: 'Sigurado ka bang gusto mong isara ang lahat ng tabs?',
+        showCancel: true,
+        onConfirm: () => {
+          [...tabs].forEach(t => {
+            t.wrapper.remove();
+            localStorage.removeItem(`tab_${t.id}_currentDir`);
+            localStorage.removeItem(`tab_${t.id}_commandHistory`);
+            localStorage.removeItem(`tab_${t.id}_bufferText`);
+          });
+          tabs = [];
+          addNewTab();
+        }
+      });
+    }
+
+    function openRenameModal(tab) {
+      const formHTML = `
+        <label class="input-label">Tab Name:</label>
+        <input type="text" id="rename_input" class="modal-input" value="${tab.name}" />
+      `;
+      showModal({
+        title: 'Rename Tab',
+        message: 'Maglagay ng bagong pangalan para sa tab:',
+        customFormHTML: formHTML,
+        showCancel: true,
+        onConfirm: () => {
+          const newName = document.getElementById('rename_input').value;
+          if (newName && newName.trim()) {
+            tab.name = newName.trim();
+            renderTabsHeader();
+            saveTabList();
+          }
+        }
+      });
+    }
+
     function renderTabsHeader() {
       const tabsBar = document.getElementById('tabsBar');
       tabsBar.querySelectorAll('.tab-item').forEach(el => el.remove());
 
+      const actionsEl = tabsBar.querySelector('.tab-actions');
+
       tabs.forEach(t => {
         const tabEl = document.createElement('div');
         tabEl.className = `tab-item ${t.id === activeTabId ? 'active' : ''}`;
+        
+        let pressTimer = null;
+
         tabEl.onclick = () => switchTab(t.id);
 
+        const startPress = () => {
+          pressTimer = setTimeout(() => {
+            openRenameModal(t);
+          }, 600);
+        };
+        const cancelPress = () => {
+          if (pressTimer) clearTimeout(pressTimer);
+        };
+
+        tabEl.addEventListener('touchstart', startPress, { passive: true });
+        tabEl.addEventListener('touchend', cancelPress);
+        tabEl.addEventListener('touchmove', cancelPress);
+        tabEl.addEventListener('mousedown', startPress);
+        tabEl.addEventListener('mouseup', cancelPress);
+        tabEl.addEventListener('mouseleave', cancelPress);
+
+        tabEl.oncontextmenu = (e) => {
+          e.preventDefault();
+          openRenameModal(t);
+        };
+
         const label = document.createElement('span');
-        label.innerText = t.id;
+        label.innerText = t.name;
 
         const closeBtn = document.createElement('span');
         closeBtn.className = 'tab-close';
         closeBtn.innerHTML = '✕';
-        closeBtn.onclick = (e) => closeTab(e, t.id);
+        closeBtn.onclick = (e) => {
+          e.stopPropagation();
+          closeTab(e, t.id);
+        };
 
         tabEl.appendChild(label);
         tabEl.appendChild(closeBtn);
 
-        const addBtn = tabsBar.querySelector('.add-tab-btn');
-        tabsBar.insertBefore(tabEl, addBtn);
+        tabsBar.insertBefore(tabEl, actionsEl);
       });
     }
 
     function resetAllTabs() {
-      if (confirm("Gusto mo bang burahin ang lahat ng na-save na tabs at kasaysayan?")) {
-        localStorage.clear();
-        location.reload();
-      }
+      showModal({
+        title: 'Reset All Data',
+        message: 'Gusto mo bang burahin ang lahat ng na-save na tabs at terminal history?',
+        showCancel: true,
+        onConfirm: () => {
+          localStorage.clear();
+          location.reload();
+        }
+      });
     }
 
     async function getAllFiles(dir, baseDir = dir) {
@@ -500,17 +811,29 @@
       for (let char of commandText) {
         active.currentInput += char;
         active.term.write(char);
-        await new Promise(r => setTimeout(r, 25));
+        await new Promise(r => setTimeout(r, 20));
       }
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 150));
       await handleEnter();
     }
 
     async function runAutoWorkflow() {
-      const repoUrl = "https://github.com/JepongDevxyz/Sample-Repository-Test.git";
-      const repoName = "Sample-Repository-Test";
+      const cfg = getSavedGitHubConfig();
 
-      await typeAndExecute(`git clone ${repoUrl}`);
+      if (!cfg.token || !cfg.repoUrl) {
+        showModal({
+          title: 'GitHub Credentials Required',
+          message: 'Kailangan mo munang i-setup ang iyong GitHub Repository at Token para magamit ang Auto Push.',
+          onConfirm: () => {
+            openConfigModal(() => runAutoWorkflow());
+          }
+        });
+        return;
+      }
+
+      const repoName = cfg.repoUrl.split('/').pop().replace('.git', '');
+
+      await typeAndExecute(`git clone ${cfg.repoUrl}`);
       await typeAndExecute(`cd ${repoName}`);
       await typeAndExecute(`mkdir auto-test-folder`);
       await typeAndExecute(`git add .`);
@@ -530,13 +853,22 @@
           active.term.write(text);
         }
       } catch (err) {
-        const text = window.prompt("Paste text here:");
-        if (text) {
-          active.undoStack.push(active.currentInput);
-          active.redoStack.length = 0;
-          active.currentInput += text;
-          active.term.write(text);
-        }
+        const formHTML = `<input type="text" id="paste_text" class="modal-input" placeholder="Paste text here..." />`;
+        showModal({
+          title: 'Paste Text',
+          message: 'I-paste ang teksto sa ibaba:',
+          customFormHTML: formHTML,
+          showCancel: true,
+          onConfirm: () => {
+            const val = document.getElementById('paste_text').value;
+            if (val) {
+              active.undoStack.push(active.currentInput);
+              active.redoStack.length = 0;
+              active.currentInput += val;
+              active.term.write(val);
+            }
+          }
+        });
       }
     }
 
@@ -611,7 +943,8 @@
     async function handleCommand(cmdStr, active) {
       if (!cmdStr) return;
       const term = active.term;
-      
+      const cfg = getSavedGitHubConfig();
+
       const args = cmdStr.match(/(?:[^\s"]+|"[^"]*")+/g).map(a => a.replace(/^"|"$/g, ''));
       const cmd = args[0];
 
@@ -811,7 +1144,10 @@
               let sha = await git.commit({
                 fs,
                 dir: active.currentDir,
-                author: { name: 'JepongDevxyz', email: 'jepong@webterm.com' },
+                author: { 
+                  name: cfg.username || 'User', 
+                  email: cfg.email || 'user@webterm.com' 
+                },
                 message: message
               });
               term.write(`\x1b[1;32m[+] Commit created: ${sha.slice(0, 7)}\x1b[0m\r\n`);
@@ -820,8 +1156,11 @@
             }
 
           } else if (subCmd === 'push') {
-            const token = window.prompt("Enter GitHub Personal Access Token (PAT):");
-            if (!token) return term.write(`\x1b[1;31m[!] Push cancelled: Token required.\x1b[0m\r\n`);
+            if (!cfg.token) {
+              term.write(`\x1b[1;31m[!] Push cancelled: GitHub PAT required. Please click ⚙️ Setup.\x1b[0m\r\n`);
+              openConfigModal();
+              return;
+            }
 
             term.write(`\x1b[1;36mPushing changes to remote repository...\x1b[0m\r\n`);
             try {
@@ -830,7 +1169,7 @@
                 http,
                 dir: active.currentDir,
                 corsProxy: 'https://cors.isomorphic-git.org',
-                onAuth: () => ({ username: token })
+                onAuth: () => ({ username: cfg.token })
               });
               term.write(`\x1b[1;32m[+] Push successful!\x1b[0m\r\n`);
             } catch (err) {
@@ -838,7 +1177,6 @@
             }
 
           } else if (subCmd === 'pull') {
-            const token = window.prompt("Enter GitHub PAT (Leave blank if public repo):");
             term.write(`\x1b[1;36mPulling latest changes...\x1b[0m\r\n`);
             try {
               await git.pull({
@@ -846,7 +1184,7 @@
                 http,
                 dir: active.currentDir,
                 corsProxy: 'https://cors.isomorphic-git.org',
-                onAuth: () => ({ username: token || '' }),
+                onAuth: () => ({ username: cfg.token || '' }),
                 singleBranch: true
               });
               term.write(`\x1b[1;32m[+] Pull completed successfully!\x1b[0m\r\n`);
