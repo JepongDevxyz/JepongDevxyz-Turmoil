@@ -27,37 +27,44 @@
     * {
       box-sizing: border-box;
     }
-    body {
+    html, body {
       background-color: #000;
       color: #00ff66;
       margin: 0;
       padding: 0;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      font-family: monospace;
-      overflow: hidden;
-    }
-    #terminal-container {
-      flex: 1;
       width: 100%;
-      padding: 5px;
+      height: 100%;
       overflow: hidden;
+      font-family: monospace;
+    }
+    
+    /* Terminal Area with padding bottom for toolbar space */
+    #terminal-container {
+      width: 100%;
+      height: calc(100vh - 50px);
+      padding: 5px;
     }
     #terminal {
       width: 100%;
       height: 100%;
     }
     
-    /* Termux-style On-Screen Toolbar Bar */
+    /* Fixed Termux-style On-Screen Toolbar Bar */
     .termux-toolbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
       display: flex;
+      align-items: center;
       background-color: #1a1a1a;
-      border-top: 1px solid #333;
-      padding: 5px;
-      gap: 6px;
+      border-top: 2px solid #00ff66;
+      padding: 0 8px;
+      gap: 8px;
       overflow-x: auto;
       white-space: nowrap;
+      z-index: 9999;
       user-select: none;
       -webkit-user-select: none;
     }
@@ -65,17 +72,17 @@
       background-color: #2a2a2a;
       color: #00ff66;
       border: 1px solid #444;
-      border-radius: 4px;
-      padding: 8px 12px;
+      border-radius: 6px;
+      padding: 8px 14px;
       font-size: 13px;
       font-weight: bold;
       font-family: monospace;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 44px;
       touch-action: manipulation;
+      flex-shrink: 0;
     }
     .termux-btn:active {
       background-color: #00ff66;
@@ -89,7 +96,7 @@
     <div id="terminal"></div>
   </div>
 
-  <!-- Termux Touch Control Bar -->
+  <!-- Termux Touch Control Bar (Fixed Bottom) -->
   <div class="termux-toolbar">
     <button class="termux-btn" onclick="handlePaste()">Paste</button>
     <button class="termux-btn" onclick="handleArrowUp()">↑</button>
@@ -186,7 +193,6 @@
     term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands.\r\n');
     initFS();
 
-    // Clear current terminal input visual
     function clearCurrentInputLine() {
       while (currentInput.length > 0) {
         currentInput = currentInput.slice(0, -1);
@@ -194,14 +200,13 @@
       }
     }
 
-    // Set new input text
     function setInput(text) {
       clearCurrentInputLine();
       currentInput = text;
       term.write(text);
     }
 
-    // Button Event Handlers
+    // Toolbar Buttons Functions
     async function handlePaste() {
       try {
         const text = await navigator.clipboard.readText();
@@ -212,7 +217,6 @@
           term.write(text);
         }
       } catch (err) {
-        // Fallback for mobile browsers requiring prompt
         const text = prompt("Paste text here:");
         if (text) {
           undoStack.push(currentInput);
@@ -274,10 +278,10 @@
 
     term.onData(async (e) => {
       switch (e) {
-        case '\r': // Enter
+        case '\r':
           await handleEnter();
           break;
-        case '\u007F': // Backspace
+        case '\u007F':
           if (currentInput.length > 0) {
             undoStack.push(currentInput);
             redoStack.length = 0;
@@ -285,10 +289,10 @@
             term.write('\b \b');
           }
           break;
-        case '\u001b[A': // Physical Arrow Up
+        case '\u001b[A':
           handleArrowUp();
           break;
-        case '\u001b[B': // Physical Arrow Down
+        case '\u001b[B':
           handleArrowDown();
           break;
         default:
