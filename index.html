@@ -41,7 +41,7 @@
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
 
-    // Custom HTTP Client para sa Isomorphic-Git gamit ang Browser Fetch
+    // Zero-dependency Fetch HTTP Client para sa Isomorphic-Git
     const http = {
       async request({ url, method, headers, body }) {
         let reqBody = body;
@@ -96,7 +96,7 @@
       term.write(`\r\n\x1b[1;32mJepongDevxyz@termax\x1b[0m:\x1b[1;34m${currentDir}\x1b[0m$ `);
     }
 
-    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Engine Ready)\x1b[0m\r\n');
+    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Complete Stable)\x1b[0m\r\n');
     term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands.\r\n');
     initFS();
 
@@ -214,7 +214,11 @@
               });
               term.write(`\x1b[1;32m[+] Clone completed successfully!\x1b[0m\r\n`);
             } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Clone Error: ${err.message}\x1b[0m\r\n`);
+              if (err.message.includes('Empty response') || err.message.includes('404')) {
+                term.write(`\x1b[1;33m[!] Note: Ground repo appears empty. Add a README.md file on GitHub first before cloning.\x1b[0m\r\n`);
+              } else {
+                term.write(`\x1b[1;31m[!] Git Clone Error: ${err.message}\x1b[0m\r\n`);
+              }
             }
 
           } else if (subCmd === 'add') {
