@@ -382,15 +382,13 @@
     let tabs = [];
     let activeTabId = null;
 
-    /* --- GitHub User Settings Helper (Multi-Account & Persistence Scope Supported) --- */
+    /* --- GitHub User Settings Helper --- */
     function getSavedGitHubConfig(tabId = activeTabId) {
-      // 1. Check local session storage for this tab
       const tabConfigStr = sessionStorage.getItem(`gh_config_tab_${tabId}`);
       if (tabConfigStr) {
         return JSON.parse(tabConfigStr);
       }
 
-      // 2. Fallback to global localStorage
       const globalRemAll = localStorage.getItem('gh_rem_all') === 'true';
       return {
         username: (globalRemAll ? localStorage.getItem('gh_username') : '') || '',
@@ -403,7 +401,6 @@
     }
 
     function saveGitHubConfig(cfg, tabId = activeTabId) {
-      // Manage "Remember in this tab" (Session-based)
       if (cfg.rememberTab) {
         sessionStorage.setItem(`gh_config_tab_${tabId}`, JSON.stringify({
           username: cfg.username.trim(),
@@ -417,7 +414,6 @@
         sessionStorage.removeItem(`gh_config_tab_${tabId}`);
       }
 
-      // Manage "Remember in all tabs" (LocalStorage-based)
       if (cfg.rememberAll) {
         localStorage.setItem('gh_rem_all', 'true');
         localStorage.setItem('gh_username', cfg.username.trim());
@@ -479,7 +475,6 @@
       document.getElementById('customModal').classList.remove('active');
     }
 
-    /* GitHub Setup Modal */
     function openConfigModal(onSavedCallback = null) {
       const activeTab = getActiveTab();
       const cfg = getSavedGitHubConfig(activeTab ? activeTab.id : null);
@@ -508,7 +503,7 @@
 
       showModal({
         title: `⚙️ GitHub Setup (${activeTab ? activeTab.name : 'Global'})`,
-        message: 'I-enter ang iyong GitHub account at token. Pwedeng magkaibang account kada tab!',
+        message: 'I-enter ang iyong GitHub account at token.',
         customFormHTML: formHTML,
         showCancel: true,
         onConfirm: () => {
@@ -521,13 +516,12 @@
             rememberAll: document.getElementById('cfg_rem_all').checked
           };
           saveGitHubConfig(newCfg, activeTab ? activeTab.id : null);
-          showModal({ title: 'Saved!', message: 'Nai-save na ang iyong GitHub Config para sa tab na ito.' });
+          showModal({ title: 'Saved!', message: 'Nai-save na ang iyong GitHub Config.' });
           if (onSavedCallback) onSavedCallback();
         }
       });
     }
 
-    // Dynamic Exclusive Checkbox Logic
     function toggleOption(type) {
       const tabCb = document.getElementById('cfg_rem_tab');
       const allCb = document.getElementById('cfg_rem_all');
@@ -689,10 +683,7 @@
 
     function addNewTab() {
       if (tabs.length >= MAX_TABS) {
-        showModal({
-          title: 'Tab Limit Reached',
-          message: `Naka-reach ka na sa maximum limit na ${MAX_TABS} tabs!`
-        });
+        showModal({ title: 'Tab Limit Reached', message: `Naka-reach ka na sa maximum limit na ${MAX_TABS} tabs!` });
         return;
       }
       const newId = `id_${Date.now().toString().slice(-6)}`;
@@ -718,10 +709,7 @@
     function closeTab(e, tabId) {
       if (e) e.stopPropagation();
       if (tabs.length === 1) {
-        showModal({
-          title: 'Cannot Close',
-          message: 'Hindi mo pwedeng isara ang natitirang huling tab.'
-        });
+        showModal({ title: 'Cannot Close', message: 'Hindi mo pwedeng isara ang huling tab.' });
         return;
       }
 
@@ -766,10 +754,7 @@
     }
 
     function openRenameModal(tab) {
-      const formHTML = `
-        <label class="input-label">Tab Name:</label>
-        <input type="text" id="rename_input" class="modal-input" value="${tab.name}" />
-      `;
+      const formHTML = `<label class="input-label">Tab Name:</label><input type="text" id="rename_input" class="modal-input" value="${tab.name}" />`;
       showModal({
         title: 'Rename Tab',
         message: 'Maglagay ng bagong pangalan para sa tab:',
@@ -789,37 +774,12 @@
     function renderTabsHeader() {
       const tabsBar = document.getElementById('tabsBar');
       tabsBar.querySelectorAll('.tab-item').forEach(el => el.remove());
-
       const actionsEl = tabsBar.querySelector('.tab-actions');
 
       tabs.forEach(t => {
         const tabEl = document.createElement('div');
         tabEl.className = `tab-item ${t.id === activeTabId ? 'active' : ''}`;
-        
-        let pressTimer = null;
-
         tabEl.onclick = () => switchTab(t.id);
-
-        const startPress = () => {
-          pressTimer = setTimeout(() => {
-            openRenameModal(t);
-          }, 600);
-        };
-        const cancelPress = () => {
-          if (pressTimer) clearTimeout(pressTimer);
-        };
-
-        tabEl.addEventListener('touchstart', startPress, { passive: true });
-        tabEl.addEventListener('touchend', cancelPress);
-        tabEl.addEventListener('touchmove', cancelPress);
-        tabEl.addEventListener('mousedown', startPress);
-        tabEl.addEventListener('mouseup', cancelPress);
-        tabEl.addEventListener('mouseleave', cancelPress);
-
-        tabEl.oncontextmenu = (e) => {
-          e.preventDefault();
-          openRenameModal(t);
-        };
 
         const label = document.createElement('span');
         label.innerText = t.name;
@@ -834,7 +794,6 @@
 
         tabEl.appendChild(label);
         tabEl.appendChild(closeBtn);
-
         tabsBar.insertBefore(tabEl, actionsEl);
       });
     }
@@ -908,19 +867,15 @@
       if (!cfg.token || !cfg.repoUrl) {
         showModal({
           title: 'GitHub Credentials Required',
-          message: 'Kailangan mo munang i-setup ang iyong GitHub Repository at Token para magamit ang Auto Push sa tab na ito.',
-          onConfirm: () => {
-            openConfigModal(() => runAutoWorkflow());
-          }
+          message: 'Kailangan mo munang i-setup ang iyong GitHub Repository at Token.',
+          onConfirm: () => { openConfigModal(() => runAutoWorkflow()); }
         });
         return;
       }
 
       const repoName = cfg.repoUrl.split('/').pop().replace('.git', '');
-
       await typeAndExecute(`git clone ${cfg.repoUrl}`);
       await typeAndExecute(`cd ${repoName}`);
-      await typeAndExecute(`mkdir auto-test-folder`);
       await typeAndExecute(`git add .`);
       await typeAndExecute(`git commit -m "Auto push test via Web TermMax"`);
       await typeAndExecute(`git push`);
@@ -932,29 +887,10 @@
       try {
         const text = await navigator.clipboard.readText();
         if (text) {
-          active.undoStack.push(active.currentInput);
-          active.redoStack.length = 0;
           active.currentInput += text;
           active.term.write(text);
         }
-      } catch (err) {
-        const formHTML = `<input type="text" id="paste_text" class="modal-input" placeholder="Paste text here..." />`;
-        showModal({
-          title: 'Paste Text',
-          message: 'I-paste ang teksto sa ibaba:',
-          customFormHTML: formHTML,
-          showCancel: true,
-          onConfirm: () => {
-            const val = document.getElementById('paste_text').value;
-            if (val) {
-              active.undoStack.push(active.currentInput);
-              active.redoStack.length = 0;
-              active.currentInput += val;
-              active.term.write(val);
-            }
-          }
-        });
-      }
+      } catch (err) {}
     }
 
     function handleArrowUp() {
@@ -992,10 +928,7 @@
       }
       
       const commands = rawInput.split(/&&|;/).map(cmd => cmd.trim()).filter(Boolean);
-      
       active.currentInput = '';
-      active.undoStack.length = 0;
-      active.redoStack.length = 0;
 
       for (let i = 0; i < commands.length; i++) {
         await handleCommand(commands[i], active);
@@ -1007,22 +940,16 @@
 
     function handleUndo() {
       const active = getActiveTab();
-      if (!active) return;
-      if (active.undoStack.length > 0) {
-        active.redoStack.push(active.currentInput);
-        const lastState = active.undoStack.pop();
-        setInput(lastState);
-      }
+      if (!active || active.undoStack.length === 0) return;
+      active.redoStack.push(active.currentInput);
+      setInput(active.undoStack.pop());
     }
 
     function handleRedo() {
       const active = getActiveTab();
-      if (!active) return;
-      if (active.redoStack.length > 0) {
-        active.undoStack.push(active.currentInput);
-        const nextState = active.redoStack.pop();
-        setInput(nextState);
-      }
+      if (!active || active.redoStack.length === 0) return;
+      active.undoStack.push(active.currentInput);
+      setInput(active.redoStack.pop());
     }
 
     async function handleCommand(cmdStr, active) {
@@ -1038,137 +965,21 @@
 
       switch (cmd) {
         case 'help':
-          term.write('\x1b[1;33m=== FILE SYSTEM COMMANDS ===\x1b[0m\r\n');
-          term.write('  \x1b[1;36mls\x1b[0m                 - List files in current folder\r\n');
-          term.write('  \x1b[1;36mcd <folder>\x1b[0m        - Change directory\r\n');
-          term.write('  \x1b[1;36mmkdir <folder>\x1b[0m     - Create directory\r\n');
-          term.write('  \x1b[1;36mrm <target> / -rf\x1b[0m  - Delete file or directory\r\n');
-          term.write('  \x1b[1;36mcat <file>\x1b[0m         - Read file content\r\n');
-          term.write('  \x1b[1;36mecho <text> [> file]\x1b[0m- Print or write text to file\r\n');
-          term.write('  \x1b[1;36medit <file>\x1b[0m        - Open modal file editor\r\n');
-          term.write('  \x1b[1;36mclear\x1b[0m              - Clear terminal\r\n\r\n');
-
-          term.write('\x1b[1;33m=== FULL GITHUB COMMANDS ===\x1b[0m\r\n');
-          term.write('  \x1b[1;32mcreate-repo <name>\x1b[0m - Create GitHub repository (--private optional)\r\n');
-          term.write('  \x1b[1;32mgit clone <url>\x1b[0m    - Clone repository\r\n');
-          term.write('  \x1b[1;32mgit init\x1b[0m           - Initialize new local Git repository\r\n');
-          term.write('  \x1b[1;32mgit status\x1b[0m         - View modified/staged files\r\n');
-          term.write('  \x1b[1;32mgit add .\x1b[0m          - Stage all changes\r\n');
-          term.write('  \x1b[1;32mgit commit -m "msg"\x1b[0m- Commit staged changes\r\n');
-          term.write('  \x1b[1;32mgit push\x1b[0m           - Push commits to GitHub\r\n');
-          term.write('  \x1b[1;32mgit pull\x1b[0m           - Fetch and merge latest changes\r\n');
-          term.write('  \x1b[1;32mgit log\x1b[0m            - Show commit history\r\n');
-          term.write('  \x1b[1;32mgit branch\x1b[0m         - List local branches\r\n');
-          term.write('  \x1b[1;32mgit checkout <bname>\x1b[0m- Switch branch\r\n');
-          term.write('  \x1b[1;32mgit remote add <u|r>\x1b[0m- Link local repo to remote URL\r\n');
+          term.write('Commands: ls, cd, mkdir, rm, cat, echo, clear, git clone/init/add/commit/push/pull\r\n');
           break;
 
         case 'echo':
           const fullText = cleanArgs.join(' ');
           const redirectIndex = fullText.indexOf('>');
-          
           if (redirectIndex !== -1) {
             const textToWrite = fullText.slice(0, redirectIndex).trim();
             const fileName = fullText.slice(redirectIndex + 1).trim();
             if (fileName) {
-              try {
-                await pfs.writeFile(`${active.currentDir}/${fileName}`, textToWrite);
-                term.write(`Saved to ${fileName}\r\n`);
-              } catch (err) {
-                term.write(`\x1b[1;31mError saving file: ${err.message}\x1b[0m\r\n`);
-              }
+              await pfs.writeFile(`${active.currentDir}/${fileName}`, textToWrite);
+              term.write(`Saved to ${fileName}\r\n`);
             }
           } else {
             term.write(fullText + '\r\n');
-          }
-          break;
-
-        case 'edit':
-          if (!cleanArgs[0]) {
-            term.write('Usage: edit <filename>\r\n');
-            break;
-          }
-          const fileName = cleanArgs[0];
-          const filePath = `${active.currentDir}/${fileName}`;
-          let existingContent = '';
-
-          try {
-            existingContent = await pfs.readFile(filePath, 'utf8');
-          } catch (e) {
-            existingContent = ''; // Bagong file kung wala pa
-          }
-
-          const editorHTML = `
-            <label class="input-label">Editing: ${fileName}</label>
-            <textarea id="fileEditorArea" class="modal-input" style="height: 180px; resize: vertical; font-family: monospace; white-space: pre; tab-size: 2;"></textarea>
-          `;
-
-          showModal({
-            title: `📝 File Editor`,
-            message: `I-edit ang nilalaman ng file sa ibaba:`,
-            customFormHTML: editorHTML,
-            showCancel: true,
-            onConfirm: async () => {
-              const newContent = document.getElementById('fileEditorArea').value;
-              try {
-                await pfs.writeFile(filePath, newContent);
-                term.write(`\x1b[1;32mFile '${fileName}' successfully saved!\x1b[0m\r\n`);
-              } catch (err) {
-                term.write(`\x1b[1;31mError saving file: ${err.message}\x1b[0m\r\n`);
-              }
-            }
-          });
-
-          // Isaksak ang umiiral na text sa editor area pagkabukas
-          setTimeout(() => {
-            const area = document.getElementById('fileEditorArea');
-            if (area) area.value = existingContent;
-          }, 50);
-          break;
-
-        case 'create-repo':
-          const repoNameInput = cleanArgs[0];
-          const isPrivate = cleanArgs.includes('--private');
-
-          if (!repoNameInput) {
-            return term.write('Usage: create-repo <repo-name> [--private]\r\n');
-          }
-
-          if (!cfg.token) {
-            term.write('\x1b[1;31m[!] Error: Personal Access Token (PAT) is required. Please click ⚙️ Setup.\x1b[0m\r\n');
-            openConfigModal();
-            return;
-          }
-
-          term.write(`\x1b[1;36mCreating GitHub repository '${repoNameInput}'...\x1b[0m\r\n`);
-
-          try {
-            const response = await fetch('https://api.github.com/user/repos', {
-              method: 'POST',
-              headers: {
-                'Authorization': `token ${cfg.token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/vnd.github.v3+json'
-              },
-              body: JSON.stringify({
-                name: repoNameInput,
-                private: isPrivate,
-                auto_init: true
-              })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-              term.write(`\x1b[1;32m[+] Successfully created repository: ${data.html_url}\x1b[0m\r\n`);
-              cfg.repoUrl = data.clone_url;
-              saveGitHubConfig(cfg, active.id);
-              term.write(`\x1b[1;33m[*] Target Repository URL updated to: ${data.clone_url}\x1b[0m\r\n`);
-            } else {
-              term.write(`\x1b[1;31m[!] Failed to create repo: ${data.message}\x1b[0m\r\n`);
-            }
-          } catch (err) {
-            term.write(`\x1b[1;31m[!] API Error: ${err.message}\x1b[0m\r\n`);
           }
           break;
 
@@ -1190,39 +1001,9 @@
           if (!cleanArgs[0]) return term.write('mkdir: missing operand\r\n');
           try {
             await pfs.mkdir(`${active.currentDir}/${cleanArgs[0]}`);
-            term.write(`Directory '${cleanArgs[0]}' created.\r\n`);
-          } catch (err) {
+            term.write(`Directory created.\r\n`);
+          } catch (e) {
             term.write(`mkdir: cannot create directory\r\n`);
-          }
-          break;
-
-        case 'rm':
-          if (!cleanArgs[0]) return term.write('rm: missing operand\r\n');
-          const targetName = cleanArgs[0] === '-rf' ? cleanArgs[1] : cleanArgs[0];
-          if (!targetName) return term.write('rm: missing operand\r\n');
-          
-          const fullPath = targetName.startsWith('/') ? targetName : `${active.currentDir}/${targetName}`;
-
-          async function removeRecursive(path) {
-            try {
-              const stat = await pfs.stat(path);
-              if (stat.isDirectory()) {
-                const files = await pfs.readdir(path);
-                for (const file of files) {
-                  await removeRecursive(`${path}/${file}`);
-                }
-                await pfs.rmdir(path);
-              } else {
-                await pfs.unlink(path);
-              }
-            } catch (e) {}
-          }
-
-          try {
-            await removeRecursive(fullPath);
-            term.write(`\x1b[1;32m[+] Removed '${targetName}' successfully.\x1b[0m\r\n`);
-          } catch (err) {
-            term.write(`\x1b[1;31m[!] rm error: ${err.message}\x1b[0m\r\n`);
           }
           break;
 
@@ -1239,20 +1020,10 @@
             try {
               const stat = await pfs.stat(target);
               if (stat.isDirectory()) active.currentDir = target;
-              else term.write(`cd: ${cleanArgs[0]}: Not a directory\r\n`);
+              else term.write(`cd: not a directory\r\n`);
             } catch (e) {
-              term.write(`cd: ${cleanArgs[0]}: No such file or directory\r\n`);
+              term.write(`cd: no such file or directory\r\n`);
             }
-          }
-          break;
-
-        case 'cat':
-          if (!cleanArgs[0]) return term.write('cat: missing file\r\n');
-          try {
-            const content = await pfs.readFile(`${active.currentDir}/${cleanArgs[0]}`, 'utf8');
-            term.write(content.replace(/\n/g, '\r\n') + '\r\n');
-          } catch (e) {
-            term.write(`cat: ${cleanArgs[0]}: No such file\r\n`);
           }
           break;
 
@@ -1262,19 +1033,18 @@
           if (subCmd === 'init') {
             try {
               await git.init({ fs, dir: active.currentDir, defaultBranch: 'main' });
-              term.write(`\x1b[1;32m[+] Initialized empty Git repository in ${active.currentDir}\x1b[0m\r\n`);
+              term.write(`[+] Initialized empty Git repository\r\n`);
             } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Init Error: ${err.message}\x1b[0m\r\n`);
+              term.write(`[!] Error: ${err.message}\r\n`);
             }
 
           } else if (subCmd === 'clone') {
             if (!cleanArgs[1]) return term.write('Usage: git clone <url>\r\n');
-            
-            let repoUrl = cleanArgs[1].replace(/^\[|\]\(.*\)$/g, '').replace(/[()]/g, '');
+            let repoUrl = cleanArgs[1];
             const repoName = repoUrl.split('/').pop().replace('.git', '');
             const dirPath = active.currentDir === '/' ? `/${repoName}` : `${active.currentDir}/${repoName}`;
 
-            term.write(`\x1b[1;36mCloning into '${repoName}'...\x1b[0m\r\n`);
+            term.write(`Cloning into '${repoName}'...\r\n`);
             try {
               await git.clone({
                 fs,
@@ -1284,160 +1054,74 @@
                 corsProxy: 'https://cors.isomorphic-git.org',
                 noCheckout: false
               });
-              term.write(`\x1b[1;32m[+] Clone completed successfully!\x1b[0m\r\n`);
+              term.write(`[+] Clone completed successfully!\r\n`);
             } catch (err) {
-              if (err.message.includes('EEXIST')) {
-                term.write(`\x1b[1;33m[!] Folder '${repoName}' already exists. Skipping clone.\x1b[0m\r\n`);
-              } else if (err.message.includes('Could not find HEAD') || err.message.includes('Empty response') || err.message.includes('404')) {
-                try {
-                  try { await pfs.mkdir(dirPath); } catch (e) {}
-                  await git.init({ fs, dir: dirPath, defaultBranch: 'main' });
-                  await git.addRemote({ fs, dir: dirPath, remote: 'origin', url: repoUrl });
-                  term.write(`\x1b[1;32m[+] Initialized workspace & connected to remote repository!\x1b[0m\r\n`);
-                } catch (initErr) {
-                  term.write(`\x1b[1;31m[!] Git Error: ${initErr.message}\x1b[0m\r\n`);
-                }
-              } else {
-                term.write(`\x1b[1;31m[!] Git Clone Error: ${err.message}\x1b[0m\r\n`);
-              }
+              term.write(`[!] Clone Error: ${err.message}\r\n`);
             }
 
           } else if (subCmd === 'status') {
             try {
               const statusMatrix = await git.statusMatrix({ fs, dir: active.currentDir });
-              if (!statusMatrix.length) {
-                term.write('Nothing to commit, working tree clean\r\n');
-              } else {
-                for (const [filepath, head, worktree, stage] of statusMatrix) {
-                  let state = '';
-                  if (head === 1 && worktree === 2 && stage === 2) state = '\x1b[1;33mmodified\x1b[0m';
-                  else if (head === 0 && worktree === 2 && stage === 0) state = '\x1b[1;31muntracked\x1b[0m';
-                  else if (head === 0 && worktree === 2 && stage === 2) state = '\x1b[1;32mstaged\x1b[0m';
-                  if (state) term.write(`  ${state}: ${filepath}\r\n`);
-                }
+              if (!statusMatrix.length) term.write('working tree clean\r\n');
+              for (const [filepath, head, worktree, stage] of statusMatrix) {
+                term.write(`  file: ${filepath}\r\n`);
               }
             } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Status Error: ${err.message}\x1b[0m\r\n`);
+              term.write(`[!] Status Error: ${err.message}\r\n`);
             }
 
           } else if (subCmd === 'add') {
-            const fileTarget = cleanArgs[1] || '.';
             try {
-              if (fileTarget === '.') {
-                const filesToStaged = await getAllFiles(active.currentDir);
-                for (const filepath of filesToStaged) {
-                  await git.add({ fs, dir: active.currentDir, filepath });
-                }
-              } else {
-                await git.add({ fs, dir: active.currentDir, filepath: fileTarget });
+              const filesToStaged = await getAllFiles(active.currentDir);
+              for (const filepath of filesToStaged) {
+                await git.add({ fs, dir: active.currentDir, filepath });
               }
-              term.write(`\x1b[1;32m[+] Staged changes successfully.\x1b[0m\r\n`);
+              term.write(`[+] Staged changes successfully.\r\n`);
             } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Add Error: ${err.message}\x1b[0m\r\n`);
+              term.write(`[!] Add Error: ${err.message}\r\n`);
             }
 
           } else if (subCmd === 'commit') {
             const flagIndex = cleanArgs.indexOf('-m');
             const message = flagIndex !== -1 ? cleanArgs[flagIndex + 1] : 'Update via Web TermMax';
-            
             try {
               let sha = await git.commit({
                 fs,
                 dir: active.currentDir,
-                author: { 
-                  name: cfg.username || 'User', 
-                  email: cfg.email || 'user@webterm.com' 
-                },
+                author: { name: cfg.username || 'User', email: cfg.email || 'user@webterm.com' },
                 message: message
               });
-              term.write(`\x1b[1;32m[+] Commit created: ${sha.slice(0, 7)}\x1b[0m\r\n`);
+              term.write(`[+] Commit created: ${sha.slice(0, 7)}\r\n`);
             } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Commit Error: ${err.message}\x1b[0m\r\n`);
+              term.write(`[!] Commit Error: ${err.message}\r\n`);
             }
 
           } else if (subCmd === 'push') {
             if (!cfg.token) {
-              term.write(`\x1b[1;31m[!] Push cancelled: GitHub PAT required. Please click ⚙️ Setup.\x1b[0m\r\n`);
+              term.write(`[!] Push cancelled: GitHub PAT required. Click ⚙️ Setup.\r\n`);
               openConfigModal();
               return;
             }
 
-            term.write(`\x1b[1;36mPushing changes to remote repository...\x1b[0m\r\n`);
+            term.write(`Pushing changes to remote repository...\r\n`);
             try {
               await git.push({
                 fs,
                 http,
                 dir: active.currentDir,
                 corsProxy: 'https://cors.isomorphic-git.org',
-                onAuth: () => ({ username: cfg.token })
+                // NAAYOS DITO: Ang tamang pagpasa ng token sa isomorphic-git ay sa password field
+                onAuth: () => ({ username: cfg.token, password: '' })
               });
               term.write(`\x1b[1;32m[+] Push successful!\x1b[0m\r\n`);
             } catch (err) {
               term.write(`\x1b[1;31m[!] Git Push Error: ${err.message}\x1b[0m\r\n`);
             }
-
-          } else if (subCmd === 'pull') {
-            term.write(`\x1b[1;36mPulling latest changes...\x1b[0m\r\n`);
-            try {
-              await git.pull({
-                fs,
-                http,
-                dir: active.currentDir,
-                corsProxy: 'https://cors.isomorphic-git.org',
-                onAuth: () => ({ username: cfg.token || '' }),
-                singleBranch: true
-              });
-              term.write(`\x1b[1;32m[+] Pull completed successfully!\x1b[0m\r\n`);
-            } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Pull Error: ${err.message}\x1b[0m\r\n`);
-            }
-
-          } else if (subCmd === 'log') {
-            try {
-              const commits = await git.log({ fs, dir: active.currentDir, depth: 5 });
-              for (const c of commits) {
-                term.write(`\x1b[1;33mcommit ${c.oid.slice(0, 7)}\x1b[0m - ${c.commit.message}\r\n`);
-              }
-            } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Log Error: ${err.message}\x1b[0m\r\n`);
-            }
-
-          } else if (subCmd === 'branch') {
-            try {
-              const branches = await git.listBranches({ fs, dir: active.currentDir });
-              term.write(branches.map(b => `  ${b}`).join('\r\n') + '\r\n');
-            } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Branch Error: ${err.message}\x1b[0m\r\n`);
-            }
-
-          } else if (subCmd === 'checkout') {
-            if (!cleanArgs[1]) return term.write('Usage: git checkout <branch-name>\r\n');
-            try {
-              await git.checkout({ fs, dir: active.currentDir, ref: cleanArgs[1] });
-              term.write(`\x1b[1;32m[+] Switched to branch '${cleanArgs[1]}'\x1b[0m\r\n`);
-            } catch (err) {
-              term.write(`\x1b[1;31m[!] Git Checkout Error: ${err.message}\x1b[0m\r\n`);
-            }
-
-          } else if (subCmd === 'remote') {
-            if (cleanArgs[1] === 'add' && cleanArgs[2] && cleanArgs[3]) {
-              try {
-                await git.addRemote({ fs, dir: active.currentDir, remote: cleanArgs[2], url: cleanArgs[3] });
-                term.write(`\x1b[1;32m[+] Remote '${cleanArgs[2]}' added successfully.\x1b[0m\r\n`);
-              } catch (err) {
-                term.write(`\x1b[1;31m[!] Git Remote Error: ${err.message}\x1b[0m\r\n`);
-              }
-            } else {
-              term.write('Usage: git remote add <name> <url>\r\n');
-            }
-
-          } else {
-            term.write('Usage: git <clone|init|status|add|commit|push|pull|log|branch|checkout|remote>\r\n');
           }
           break;
 
         default:
-          term.write(`${cmd}: command not found. Type 'help' for available commands.\r\n`);
+          term.write(`${cmd}: command not found.\r\n`);
       }
     }
 
