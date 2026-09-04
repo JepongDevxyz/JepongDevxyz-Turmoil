@@ -1110,10 +1110,26 @@
                 http,
                 dir: active.currentDir,
                 corsProxy: 'https://cors.isomorphic-git.org',
-                // NAAYOS DITO: Ang tamang pagpasa ng token sa isomorphic-git ay sa password field
                 onAuth: () => ({ username: cfg.token, password: '' })
               });
+
+              // --- IDINAGDAG NA LIVE LINK GENERATOR SA DULO NG PUSH ---
+              let ghUser = cfg.username;
+              let repoName = '';
+              if (cfg.repoUrl) {
+                const cleanUrl = cfg.repoUrl.replace(/\.git$/, '');
+                const parts = cleanUrl.split('/');
+                repoName = parts.pop();
+                if (!ghUser) {
+                  ghUser = parts.pop(); // Auto extract username from repo URL kung blanko ang username config
+                }
+              }
+
               term.write(`\x1b[1;32m[+] Push successful!\x1b[0m\r\n`);
+              if (ghUser && repoName) {
+                const liveUrl = `https://${ghUser}.github.io/${repoName}/`;
+                term.write(`\x1b[1;36m🌐 Live Website Link: ${liveUrl}\x1b[0m\r\n`);
+              }
             } catch (err) {
               term.write(`\x1b[1;31m[!] Git Push Error: ${err.message}\x1b[0m\r\n`);
             }
