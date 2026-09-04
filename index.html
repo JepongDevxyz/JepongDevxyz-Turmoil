@@ -610,6 +610,7 @@
         wrapper,
         currentDir: localStorage.getItem(`tab_${tabId}_currentDir`) || '/home',
         currentInput: '',
+        isProcessing: false, // <-- Guard laban sa double input conflict
         commandHistory: JSON.parse(localStorage.getItem(`tab_${tabId}_commandHistory`) || '[]'),
         historyIndex: -1,
         undoStack: [],
@@ -620,11 +621,15 @@
 
       term.onData(async (e) => {
         if (activeTabId !== tabId) return;
+        if (tabData.isProcessing) return;
+
         switch (e) {
           case '\r':
+          case '\n':
             await handleEnter();
             break;
           case '\u007F':
+          case '\b':
             if (tabData.currentInput.length > 0) {
               tabData.undoStack.push(tabData.currentInput);
               tabData.redoStack.length = 0;
@@ -639,7 +644,7 @@
             handleArrowDown();
             break;
           default:
-            if (e >= ' ' && e <= '~') {
+            if (e.length === 1 && e >= ' ' && e <= '~') {
               tabData.undoStack.push(tabData.currentInput);
               tabData.redoStack.length = 0;
               tabData.currentInput += e;
@@ -918,8 +923,9 @@
 
     async function handleEnter() {
       const active = getActiveTab();
-      if (!active) return;
+      if (!active || active.isProcessing) return;
 
+      active.isProcessing = true;
       active.term.write('\r\n');
       const rawInput = active.currentInput.trim();
       if (rawInput) {
@@ -936,6 +942,7 @@
       
       promptForTab(active);
       active.term.scrollToBottom();
+      active.isProcessing = false;
     }
 
     function handleUndo() {
@@ -1113,7 +1120,6 @@
                 onAuth: () => ({ username: cfg.token, password: '' })
               });
 
-              // --- IDINAGDAG NA LIVE LINK GENERATOR SA DULO NG PUSH ---
               let ghUser = cfg.username;
               let repoName = '';
               if (cfg.repoUrl) {
@@ -1121,7 +1127,7 @@
                 const parts = cleanUrl.split('/');
                 repoName = parts.pop();
                 if (!ghUser) {
-                  ghUser = parts.pop(); // Auto extract username from repo URL kung blanko ang username config
+                  ghUser = parts.pop();
                 }
               }
 
