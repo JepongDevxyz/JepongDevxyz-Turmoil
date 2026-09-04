@@ -610,7 +610,7 @@
         wrapper,
         currentDir: localStorage.getItem(`tab_${tabId}_currentDir`) || '/home',
         currentInput: '',
-        isProcessing: false, // <-- Guard laban sa double input conflict
+        isProcessing: false,
         commandHistory: JSON.parse(localStorage.getItem(`tab_${tabId}_commandHistory`) || '[]'),
         historyIndex: -1,
         undoStack: [],
@@ -1011,6 +1011,39 @@
             term.write(`Directory created.\r\n`);
           } catch (e) {
             term.write(`mkdir: cannot create directory\r\n`);
+          }
+          break;
+
+        case 'rm':
+          if (!cleanArgs[0]) return term.write('rm: missing operand\r\n');
+          try {
+            const targetName = cleanArgs.filter(arg => arg !== '-rf' && arg !== '-r' && arg !== '-f')[0];
+            if (!targetName) return term.write('rm: missing target file or directory\r\n');
+            
+            const targetPath = `${active.currentDir}/${targetName}`;
+            const stat = await pfs.stat(targetPath);
+            
+            if (stat.isDirectory()) {
+              async function removeRecursive(dirPath) {
+                const entries = await pfs.readdir(dirPath);
+                for (const entry of entries) {
+                  const full = `${dirPath}/${entry}`;
+                  const s = await pfs.stat(full);
+                  if (s.isDirectory()) {
+                    await removeRecursive(full);
+                  } else {
+                    await pfs.unlink(full);
+                  }
+                }
+                await pfs.rmdir(dirPath);
+              }
+              await removeRecursive(targetPath);
+            } else {
+              await pfs.unlink(targetPath);
+            }
+            term.write(`Removed successfully.\r\n`);
+          } catch (e) {
+            term.write(`rm: cannot remove: No such file or directory\r\n`);
           }
           break;
 
