@@ -25,7 +25,7 @@
 
   <div id="terminal"></div>
 
-  <!-- xterm.js, LightningFS, at Isomorphic-Git -->
+  <!-- Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script src="https://unpkg.com/@isomorphic-git/lightning-fs"></script>
@@ -35,7 +35,6 @@
   <script>
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
-    const GitHttp = window.GitHttpWeb;
 
     const term = new Terminal({
       cursorBlink: true,
@@ -88,6 +87,9 @@
       if (!cmdStr) return;
       const args = cmdStr.split(' ');
       const cmd = args[0];
+
+      // Kukunin ang HTTP module direkta mula sa window object
+      const httpModule = window.GitHttpWeb || window.GitHttp;
 
       switch (cmd) {
         case 'help':
@@ -169,7 +171,7 @@
             try {
               await git.clone({
                 fs,
-                http: GitHttp,
+                http: httpModule,
                 dir: dirPath,
                 url: repoUrl,
                 corsProxy: 'https://cors.isomorphic-git.org',
@@ -210,7 +212,7 @@
             try {
               await git.push({
                 fs,
-                http: GitHttp,
+                http: httpModule,
                 dir: currentDir,
                 corsProxy: 'https://cors.isomorphic-git.org',
                 onAuth: () => ({ username: token })
