@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JepongDevxyz - Web TermMax</title>
 
-  <!-- Step 1: Buffer Polyfill (Dapat nakaload agad sa pinakataas) -->
+  <!-- Step 1: Buffer Polyfill (Laging nasa pinakataas) -->
   <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
   <script>
     window.Buffer = window.buffer.Buffer;
@@ -16,7 +16,7 @@
     }
   </script>
 
-  <!-- Step 2: Xterm CSS & Core Libraries -->
+  <!-- Step 2: External Libraries -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
@@ -47,7 +47,7 @@
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
 
-    // Zero-dependency Fetch HTTP Client para sa Isomorphic-Git
+    // Zero-dependency Fetch HTTP Client
     const http = {
       async request({ url, method, headers, body }) {
         let reqBody = body;
@@ -102,7 +102,6 @@
       term.write(`\r\n\x1b[1;32mJepongDevxyz@termax\x1b[0m:\x1b[1;34m${currentDir}\x1b[0m$ `);
     }
 
-    // Helper function para mag-walk ng files nang recursive para sa git add
     async function getAllFiles(dir, baseDir = dir) {
       let results = [];
       const list = await pfs.readdir(dir);
@@ -121,8 +120,8 @@
       return results;
     }
 
-    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Buffer & Git Fixed)\x1b[0m\r\n');
-    term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands.\r\n');
+    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Complete Guide Edition)\x1b[0m\r\n');
+    term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands and full GitHub workflow guide.\r\n');
     initFS();
 
     term.onData(async (e) => {
@@ -155,12 +154,32 @@
 
       switch (cmd) {
         case 'help':
-          term.write('Supported Commands:\r\n');
-          term.write('  ls, cd, mkdir, cat, clear\r\n');
-          term.write('  git clone <url>\r\n');
-          term.write('  git add <file|.>\r\n');
-          term.write('  git commit -m "<message>"\r\n');
-          term.write('  git push\r\n');
+          term.write('\x1b[1;33m=== FILE SYSTEM COMMANDS ===\x1b[0m\r\n');
+          term.write('  \x1b[1;36mls\x1b[0m             - Tingnan ang mga files sa kasalukuyang folder\r\n');
+          term.write('  \x1b[1;36mcd <folder>\x1b[0m    - Lumipat ng folder (hal. cd my-repo o cd .. para bumalik)\r\n');
+          term.write('  \x1b[1;36mmkdir <folder>\x1b[0m - Gumawa ng bagong folder\r\n');
+          term.write('  \x1b[1;36mcat <file>\x1b[0m     - Basahin ang laman ng isang file\r\n');
+          term.write('  \x1b[1;36mclear\x1b[0m          - Linisin ang terminal screen\r\n\r\n');
+
+          term.write('\x1b[1;33m=== GITHUB WORKFLOW GUIDE (STEP-BY-STEP) ===\x1b[0m\r\n');
+          term.write('  \x1b[1;32mStep 1: git clone <url>\x1b[0m\r\n');
+          term.write('          Kopyahin ang repository mula sa GitHub papunta sa terminal.\r\n');
+          term.write('          \x1b[90mHalimbawa: git clone https://github.com/User/Repo.git\x1b[0m\r\n\r\n');
+
+          term.write('  \x1b[1;32mStep 2: cd <repo-folder>\x1b[0m\r\n');
+          term.write('          Pumunta sa loob ng cloned folder bago mag-edit o mag-add.\r\n\r\n');
+
+          term.write('  \x1b[1;32mStep 3: git add .\x1b[0m\r\n');
+          term.write('          I-stage/i-handa ang LAHAT ng bagong gawa o na-edit na files.\r\n');
+          term.write('          \x1b[90mPwede rin: git add index.html (isang file lang)\x1b[0m\r\n\r\n');
+
+          term.write('  \x1b[1;32mStep 4: git commit -m "mensahe"\x1b[0m\r\n');
+          term.write('          I-save ang iyong mga pagbabago lokal gamit ang maiikling note.\r\n');
+          term.write('          \x1b[90mHalimbawa: git commit -m "Add index.html"\x1b[0m\r\n\r\n');
+
+          term.write('  \x1b[1;32mStep 5: git push\x1b[0m\r\n');
+          term.write('          I-upload ang iyong commit papunta sa GitHub server.\r\n');
+          term.write('          \x1b[90mHihingiin nito ang iyong GitHub Personal Access Token (PAT).\x1b[0m\r\n');
           break;
 
         case 'clear':
