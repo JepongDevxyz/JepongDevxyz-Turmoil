@@ -25,25 +25,46 @@
 
   <div id="terminal"></div>
 
-  <!-- Corrected CDN Imports -->
+  <!-- Pure Standalone Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script src="https://unpkg.com/@isomorphic-git/lightning-fs"></script>
   <script src="https://unpkg.com/isomorphic-git"></script>
-  <script src="https://unpkg.com/isomorphic-git/http/web/index.js"></script>
 
   <script>
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
 
-    // Secure resolution para sa GitHttp module sa browser
-    function getGitHttp() {
-      if (typeof GitHttpWeb !== 'undefined') return GitHttpWeb;
-      if (window.GitHttpWeb) return window.GitHttpWeb;
-      if (typeof GitHttp !== 'undefined') return GitHttp;
-      if (window.GitHttp) return window.GitHttp;
-      return null;
-    }
+    // Native Browser Fetch HTTP Adapter para sa Isomorphic-Git
+    const customHttpClient = {
+      async request({ url, method, headers, body }) {
+        const response = await fetch(url, {
+          method,
+          headers,
+          body: body ? await (async () => {
+            const chunks = [];
+            for await (const chunk of body) chunks.push(chunk);
+            return new Uint8Array(chunks.reduce((acc, c) => acc.concat(Array.from(c)), []));
+          })() : undefined
+        });
+
+        return {
+          url: response.url,
+          method: method,
+          statusCode: response.status,
+          statusMessage: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: (async function* () {
+            const reader = response.body.getReader();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              yield value;
+            }
+          })()
+        };
+      }
+    };
 
     const term = new Terminal({
       cursorBlink: true,
@@ -66,7 +87,7 @@
       term.write(`\r\n\x1b[1;32mJepongDevxyz@termax\x1b[0m:\x1b[1;34m${currentDir}\x1b[0m$ `);
     }
 
-    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Full Termux Engine)\x1b[0m\r\n');
+    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Fixed Engine)\x1b[0m\r\n');
     term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands.\r\n');
     initFS();
 
@@ -97,7 +118,6 @@
       
       const args = cmdStr.match(/(?:[^\s"]+|"[^"]*")+/g).map(a => a.replace(/^"|"$/g, ''));
       const cmd = args[0];
-      const httpModule = getGitHttp();
 
       switch (cmd) {
         case 'help':
@@ -163,16 +183,11 @@
           break;
 
         case 'git':
-          if (!httpModule) {
-            return term.write(`\x1b[1;31m[!] Git Error: HTTP module not loaded. Refreshing page usually resolves this.\x1b[0m\r\n`);
-          }
-
           const subCmd = args[1];
 
           if (subCmd === 'clone') {
             if (!args[2]) return term.write('Usage: git clone <url>\r\n');
             
-            // Clean Markdown or extra brackets if pasted accidentally
             let repoUrl = args[2].replace(/^\[|\]\(.*\)$/g, '').replace(/[()]/g, '');
             const repoName = repoUrl.split('/').pop().replace('.git', '');
             const dirPath = currentDir === '/' ? `/${repoName}` : `${currentDir}/${repoName}`;
@@ -181,7 +196,7 @@
             try {
               await git.clone({
                 fs,
-                http: httpModule,
+                http: customHttpClient,
                 dir: dirPath,
                 url: repoUrl,
                 corsProxy: 'https://cors.isomorphic-git.org',
@@ -235,7 +250,7 @@
             try {
               await git.push({
                 fs,
-                http: httpModule,
+                http: customHttpClient,
                 dir: currentDir,
                 corsProxy: 'https://cors.isomorphic-git.org',
                 onAuth: () => ({ username: token })
