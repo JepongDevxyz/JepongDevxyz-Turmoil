@@ -25,6 +25,7 @@
 
   <div id="terminal"></div>
 
+  <!-- xterm.js, LightningFS, at Isomorphic-Git -->
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script src="https://unpkg.com/@isomorphic-git/lightning-fs"></script>
@@ -202,13 +203,17 @@
               term.write(`\x1b[1;31m[!] Git Commit Error: ${err.message}\x1b[0m\r\n`);
             }
           } else if (subCmd === 'push') {
+            const token = prompt("Enter your GitHub Personal Access Token (PAT):");
+            if (!token) return term.write(`\x1b[1;31m[!] Push cancelled: Token required.\x1b[0m\r\n`);
+
             term.write(`\x1b[1;36mPushing changes via browser engine...\x1b[0m\r\n`);
             try {
               await git.push({
                 fs,
                 http: GitHttp,
                 dir: currentDir,
-                corsProxy: 'https://cors.isomorphic-git.org'
+                corsProxy: 'https://cors.isomorphic-git.org',
+                onAuth: () => ({ username: token })
               });
               term.write(`\x1b[1;32m[+] Push successful!\x1b[0m\r\n`);
             } catch (err) {
