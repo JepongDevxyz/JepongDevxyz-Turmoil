@@ -25,22 +25,55 @@
 
   <div id="terminal"></div>
 
-  <!-- Buffer Polyfill para sa Browser -->
+  <!-- Buffer Polyfill -->
   <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.js"></script>
   <script>
     window.Buffer = window.buffer.Buffer;
   </script>
 
-  <!-- TermMax Dependencies -->
+  <!-- Core Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script src="https://unpkg.com/@isomorphic-git/lightning-fs"></script>
   <script src="https://unpkg.com/isomorphic-git"></script>
-  <script src="https://unpkg.com/isomorphic-git/http/web/index.js"></script>
 
   <script>
     const fs = new LightningFS('JepongFS');
     const pfs = fs.promises;
+
+    // Custom HTTP Client para sa Isomorphic-Git gamit ang Browser Fetch
+    const http = {
+      async request({ url, method, headers, body }) {
+        let reqBody = body;
+        if (body && typeof body[Symbol.asyncIterator] === 'function') {
+          const chunks = [];
+          for await (const chunk of body) chunks.push(chunk);
+          reqBody = Buffer.concat(chunks);
+        }
+
+        const res = await fetch(url, {
+          method,
+          headers,
+          body: reqBody
+        });
+
+        return {
+          url: res.url,
+          method: method,
+          statusCode: res.status,
+          statusMessage: res.statusText,
+          headers: Object.fromEntries(res.headers.entries()),
+          body: (async function* () {
+            const reader = res.body.getReader();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              yield value;
+            }
+          })()
+        };
+      }
+    };
 
     const term = new Terminal({
       cursorBlink: true,
@@ -63,7 +96,7 @@
       term.write(`\r\n\x1b[1;32mJepongDevxyz@termax\x1b[0m:\x1b[1;34m${currentDir}\x1b[0m$ `);
     }
 
-    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Buffer Fixed)\x1b[0m\r\n');
+    term.write('\x1b[1;32mJepongDevxyz Web TermMax (Engine Ready)\x1b[0m\r\n');
     term.write('Type \x1b[1;33mhelp\x1b[0m to list available commands.\r\n');
     initFS();
 
@@ -98,7 +131,7 @@
       switch (cmd) {
         case 'help':
           term.write('Supported Commands:\r\n');
-          term.write('  ls, cd, mkdir, cat, rm, clear, pkg install <pkg>\r\n');
+          term.write('  ls, cd, mkdir, cat, rm, clear\r\n');
           term.write('  git clone <url>\r\n');
           term.write('  git add <file|.>\r\n');
           term.write('  git commit -m "<message>"\r\n');
@@ -172,7 +205,7 @@
             try {
               await git.clone({
                 fs,
-                http: GitHttp,
+                http,
                 dir: dirPath,
                 url: repoUrl,
                 corsProxy: 'https://cors.isomorphic-git.org',
@@ -226,7 +259,7 @@
             try {
               await git.push({
                 fs,
-                http: GitHttp,
+                http,
                 dir: currentDir,
                 corsProxy: 'https://cors.isomorphic-git.org',
                 onAuth: () => ({ username: token })
